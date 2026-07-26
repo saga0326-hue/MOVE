@@ -26,7 +26,11 @@ function App() {
       setSelectedDate(data.dates[0]);
     } catch (err) {
       console.error(err);
-      setError('匯入失敗，請確認檔案格式是否正確（.xlsx）。');
+      setError(
+        err instanceof Error && err.message.includes('欄位標題列')
+          ? err.message
+          : '匯入失敗，請確認檔案格式是否正確（.xlsx）。'
+      );
     } finally {
       e.target.value = '';
     }
@@ -99,6 +103,8 @@ function App() {
             <ScheduleBoard
               date={selectedDate}
               groups={groups}
+              storeKeys={scheduleData.storeKeys}
+              staffKeys={scheduleData.staffKeys}
               onChangeGroups={handleChangeGroups}
             />
           </>

@@ -10,9 +10,6 @@ const decodeId = (id) => {
   return { type, groupIndex: Number(groupIndex), shift: Number(shift) };
 };
 
-const STORE_FIELDS = ['店號', '店名', '型態', '課別', '前次盤點'];
-const STAFF_FIELDS = ['預定盤點者', '備註'];
-
 function swapFields(groups, fields, a, b) {
   const next = groups.map((g) => ({
     ...g,
@@ -29,7 +26,7 @@ function swapFields(groups, fields, a, b) {
   return next;
 }
 
-export default function ScheduleBoard({ date, groups, onChangeGroups }) {
+export default function ScheduleBoard({ date, groups, storeKeys, staffKeys, onChangeGroups }) {
   const [editingSlot, setEditingSlot] = useState(null);
 
   const handleDragEnd = (result) => {
@@ -40,7 +37,7 @@ export default function ScheduleBoard({ date, groups, onChangeGroups }) {
     if (source.groupIndex === dest.groupIndex && source.shift === dest.shift)
       return;
 
-    const fields = source.type === 'store' ? STORE_FIELDS : STAFF_FIELDS;
+    const fields = source.type === 'store' ? storeKeys : staffKeys;
     onChangeGroups(swapFields(groups, fields, source, dest));
   };
 

@@ -16,19 +16,19 @@ import {
 import ScheduleBoard from './components/ScheduleBoard';
 import DateSwitcher from './components/DateSwitcher';
 import StorePoolPanel from './components/StorePoolPanel';
+import DailyStaffRow from './components/DailyStaffRow';
 
 function App() {
   const [scheduleData, setScheduleData] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [storePool, setStorePool] = useState([]);
   const [error, setError] = useState('');
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
   const fileInputRef = useRef(null);
 
   const handleImportClick = () => fileInputRef.current?.click();
 
-  const handleFileChange = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const processScheduleFile = async (file) => {
     try {
       setError('');
       const data = await parseScheduleFile(file);
@@ -45,9 +45,22 @@ function App() {
           ? err.message
           : '匯入失敗，請確認檔案格式是否正確（.xlsx）。'
       );
-    } finally {
-      e.target.value = '';
     }
+  };
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await processScheduleFile(file);
+    e.target.value = '';
+  };
+
+  const handleDropFile = async (e) => {
+    e.preventDefault();
+    setIsDraggingFile(false);
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    await processScheduleFile(file);
   };
 
   const handleExport = () => {
@@ -168,9 +181,25 @@ function App() {
 
       <main className="mx-auto max-w-7xl px-4 py-5">
         {!scheduleData ? (
-          <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-white py-24 text-center text-gray-400">
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDraggingFile(true);
+            }}
+            onDragLeave={() => setIsDraggingFile(false)}
+            onDrop={handleDropFile}
+            className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed py-24 text-center transition-colors ${
+              isDraggingFile
+                ? 'border-purple-400 bg-purple-50 text-purple-400'
+                : 'border-gray-300 bg-white text-gray-400'
+            }`}
+          >
             <CalendarDays size={40} className="mb-3" />
-            <p className="text-sm">尚未匯入班表，請點擊上方「匯入 Excel」開始</p>
+            <p className="text-sm">
+              {isDraggingFile
+                ? '放開以匯入班表'
+                : '尚未匯入班表，請點擊上方「匯入 Excel」或將檔案拖曳到此處'}
+            </p>
           </div>
         ) : (
           <DragDropContext onDragEnd={handleDragEnd}>
@@ -181,6 +210,7 @@ function App() {
                 onSelect={setSelectedDate}
               />
             </div>
+            <DailyStaffRow groups={groups} />
             <div className="flex items-start gap-4">
               <div className="min-w-0 flex-1">
                 <ScheduleBoard groups={groups} onChangeGroups={handleChangeGroups} />

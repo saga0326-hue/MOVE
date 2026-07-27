@@ -168,6 +168,56 @@ export async function parseScheduleFile(file) {
 }
 
 /**
+ * 解析「店庫異動」Excel（只需包含店號欄位，型態/店名/課別等欄位皆為選填）
+ * -> 門市資料陣列 [{ 店號, 店名, 型態, 課別, ... }]
+ */
+export async function parseStorePoolFile(file) {
+  const buffer = await file.arrayBuffer();
+  const workbook = XLSX.read(buffer, { type: 'array' });
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+
+  const headerIdx = rawRows.findIndex((r) =>
+    (r || []).some((c) => String(c ?? '').trim().includes('店號'))
+  );
+  if (headerIdx === -1) {
+    throw new Error('找不到欄位標題列（需包含「店號」欄位）');
+  }
+
+  const columns = buildColumns(rawRows[headerIdx]).filter(
+    (c) => !STRUCTURAL_KEYS.includes(c.key) && !STAFF_KEYS.includes(c.key)
+  );
+  if (!columns.some((c) => c.key === '店號')) {
+    throw new Error('找不到「店號」欄位');
+  }
+
+  const stores = [];
+  for (let i = headerIdx + 1; i < rawRows.length; i++) {
+    const arr = rawRows[i];
+    if (!arr || arr.every((c) => String(c ?? '').trim() === '')) continue;
+    const row = rowArrayToObject(arr, columns);
+    if (!row['店號']) continue;
+    stores.push(row);
+  }
+  return stores;
+}
+
+/**
+ * 將新的門市資料合併進現有暫存區：以店號比對，有的更新、沒有的新增，其餘既有項目不動
+ */
+export function mergeStorePool(pool, incoming) {
+  const map = new Map(pool.map((s) => [s.店號, s]));
+  for (const store of incoming) {
+    const existing = map.get(store.店號);
+    map.set(
+      store.店號,
+      existing ? { ...existing, ...store } : { _id: crypto.randomUUID(), ...store }
+    );
+  }
+  return Array.from(map.values());
+}
+
+/**
  * 將 ScheduleData 還原成扁平的 30 列/日並匯出成 Excel，欄位與順序完全比照匯入時的標題列
  */
 export function exportScheduleFile(scheduleData, filename = '盤點班表.xlsx') {

@@ -1,12 +1,26 @@
 import { useRef, useState } from 'react';
+import { DragDropContext } from '@hello-pangea/dnd';
 import { Upload, Download, CalendarDays } from 'lucide-react';
-import { parseScheduleFile, exportScheduleFile } from './utils/scheduleParser';
+import {
+  parseScheduleFile,
+  exportScheduleFile,
+  parseStorePoolFile,
+  mergeStorePool,
+} from './utils/scheduleParser';
+import {
+  decodeDroppableId,
+  swapFields,
+  getSlotStoreFields,
+  setSlotStoreFields,
+} from './utils/dnd';
 import ScheduleBoard from './components/ScheduleBoard';
 import DateSwitcher from './components/DateSwitcher';
+import StorePoolPanel from './components/StorePoolPanel';
 
 function App() {
   const [scheduleData, setScheduleData] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
+  const [storePool, setStorePool] = useState([]);
   const [error, setError] = useState('');
   const fileInputRef = useRef(null);
 
@@ -46,6 +60,73 @@ function App() {
       ...prev,
       byDate: { ...prev.byDate, [selectedDate]: nextGroups },
     }));
+  };
+
+  const handleAddStore = (form) => {
+    setStorePool((prev) => [...prev, { _id: crypto.randomUUID(), ...form }]);
+  };
+
+  const handleRemoveStore = (id) => {
+    setStorePool((prev) => prev.filter((s) => s._id !== id));
+  };
+
+  const handleImportStorePool = async (file) => {
+    const stores = await parseStorePoolFile(file);
+    setStorePool((prev) => mergeStorePool(prev, stores));
+  };
+
+  const handleDragEnd = (result) => {
+    if (!result.destination || !scheduleData) return;
+    const src = decodeDroppableId(result.source.droppableId);
+    const dst = decodeDroppableId(result.destination.droppableId);
+    const groups = scheduleData.byDate[selectedDate];
+
+    // 暫存區內重新排序
+    if (src.kind === 'pool' && dst.kind === 'pool') {
+      if (result.source.index === result.destination.index) return;
+      setStorePool((prev) => {
+        const next = [...prev];
+        const [moved] = next.splice(result.source.index, 1);
+        next.splice(result.destination.index, 0, moved);
+        return next;
+      });
+      return;
+    }
+
+    // 暫存區 -> 班表槽位：指派店家，並從暫存區移除
+    if (src.kind === 'pool' && dst.kind === 'slot' && dst.type === 'store') {
+      const store = storePool[result.source.index];
+      if (!store) return;
+      const nextGroups = setSlotStoreFields(
+        groups,
+        dst.groupIndex,
+        dst.shift,
+        store,
+        scheduleData.storeKeys
+      );
+      handleChangeGroups(nextGroups);
+      setStorePool((prev) => prev.filter((_, i) => i !== result.source.index));
+      return;
+    }
+
+    // 班表槽位 -> 暫存區：把門市退回暫存區，並清空該槽位
+    if (src.kind === 'slot' && src.type === 'store' && dst.kind === 'pool') {
+      const storeData = getSlotStoreFields(groups, src.groupIndex, src.shift, scheduleData.storeKeys);
+      if (!storeData['店號']) return;
+      handleChangeGroups(
+        setSlotStoreFields(groups, src.groupIndex, src.shift, {}, scheduleData.storeKeys)
+      );
+      setStorePool((prev) => [...prev, { _id: crypto.randomUUID(), ...storeData }]);
+      return;
+    }
+
+    // 班表槽位之間互換（門市 或 人員資訊）
+    if (src.kind === 'slot' && dst.kind === 'slot') {
+      if (src.type !== dst.type) return;
+      if (src.groupIndex === dst.groupIndex && src.shift === dst.shift) return;
+      const fields = src.type === 'store' ? scheduleData.storeKeys : scheduleData.staffKeys;
+      handleChangeGroups(swapFields(groups, fields, src, dst));
+    }
   };
 
   const groups = scheduleData?.byDate[selectedDate];
@@ -92,7 +173,7 @@ function App() {
             <p className="text-sm">尚未匯入班表，請點擊上方「匯入 Excel」開始</p>
           </div>
         ) : (
-          <>
+          <DragDropContext onDragEnd={handleDragEnd}>
             <div className="mb-4">
               <DateSwitcher
                 dates={scheduleData.dates}
@@ -100,14 +181,18 @@ function App() {
                 onSelect={setSelectedDate}
               />
             </div>
-            <ScheduleBoard
-              date={selectedDate}
-              groups={groups}
-              storeKeys={scheduleData.storeKeys}
-              staffKeys={scheduleData.staffKeys}
-              onChangeGroups={handleChangeGroups}
-            />
-          </>
+            <div className="flex items-start gap-4">
+              <div className="min-w-0 flex-1">
+                <ScheduleBoard groups={groups} onChangeGroups={handleChangeGroups} />
+              </div>
+              <StorePoolPanel
+                pool={storePool}
+                onAdd={handleAddStore}
+                onRemove={handleRemoveStore}
+                onImportFile={handleImportStorePool}
+              />
+            </div>
+          </DragDropContext>
         )}
       </main>
     </div>

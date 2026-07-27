@@ -1,45 +1,11 @@
 import { useState } from 'react';
-import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { Store, User, Pencil, GripVertical } from 'lucide-react';
+import { encodeSlotId } from '../utils/dnd';
 import EditModal from './EditModal';
 
-// dnd id 編碼：type|groupIndex|shift  (同一日期內即可保證唯一)
-const encodeId = (type, groupIndex, shift) => `${type}|${groupIndex}|${shift}`;
-const decodeId = (id) => {
-  const [type, groupIndex, shift] = id.split('|');
-  return { type, groupIndex: Number(groupIndex), shift: Number(shift) };
-};
-
-function swapFields(groups, fields, a, b) {
-  const next = groups.map((g) => ({
-    ...g,
-    shift1: { ...g.shift1 },
-    shift2: { ...g.shift2 },
-  }));
-  const rowA = next[a.groupIndex - 1][a.shift === 1 ? 'shift1' : 'shift2'];
-  const rowB = next[b.groupIndex - 1][b.shift === 1 ? 'shift1' : 'shift2'];
-  for (const f of fields) {
-    const tmp = rowA[f];
-    rowA[f] = rowB[f];
-    rowB[f] = tmp;
-  }
-  return next;
-}
-
-export default function ScheduleBoard({ date, groups, storeKeys, staffKeys, onChangeGroups }) {
+export default function ScheduleBoard({ groups, onChangeGroups }) {
   const [editingSlot, setEditingSlot] = useState(null);
-
-  const handleDragEnd = (result) => {
-    if (!result.destination) return;
-    const source = decodeId(result.source.droppableId);
-    const dest = decodeId(result.destination.droppableId);
-    if (source.type !== dest.type) return;
-    if (source.groupIndex === dest.groupIndex && source.shift === dest.shift)
-      return;
-
-    const fields = source.type === 'store' ? storeKeys : staffKeys;
-    onChangeGroups(swapFields(groups, fields, source, dest));
-  };
 
   const openEdit = (groupIndex, shift) => {
     const group = groups[groupIndex - 1];
@@ -57,7 +23,7 @@ export default function ScheduleBoard({ date, groups, storeKeys, staffKeys, onCh
   };
 
   return (
-    <DragDropContext onDragEnd={handleDragEnd}>
+    <>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
         {groups.map((group) => (
           <div
@@ -94,7 +60,7 @@ export default function ScheduleBoard({ date, groups, storeKeys, staffKeys, onCh
           onSave={saveEdit}
         />
       )}
-    </DragDropContext>
+    </>
   );
 }
 
@@ -113,7 +79,7 @@ function SlotColumn({ label, groupIndex, shift, row, onEdit }) {
       </div>
 
       <DroppableCard
-        id={encodeId('store', groupIndex, shift)}
+        id={encodeSlotId('store', groupIndex, shift)}
         type="store"
       >
         <div className="flex items-start gap-1.5">
@@ -133,7 +99,7 @@ function SlotColumn({ label, groupIndex, shift, row, onEdit }) {
       </DroppableCard>
 
       <DroppableCard
-        id={encodeId('staff', groupIndex, shift)}
+        id={encodeSlotId('staff', groupIndex, shift)}
         type="staff"
       >
         <div className="flex items-start gap-1.5">

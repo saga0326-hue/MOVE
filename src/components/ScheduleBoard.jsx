@@ -85,12 +85,19 @@ function SlotColumn({ label, groupIndex, shift, row, onEdit }) {
         <div className="flex items-start gap-1.5">
           <Store size={14} className="mt-0.5 shrink-0 text-purple-400" />
           <div className="min-w-0 text-left">
-            <div className="truncate text-sm font-medium text-gray-800">
-              {row.店號 ? `${row.店號} ${row.店名}` : (
-                <span className="text-gray-300">未設定門市</span>
-              )}
-            </div>
-            <div className="truncate text-[11px] text-gray-400">
+            {row.店號 ? (
+              <>
+                <div className="break-words text-sm font-medium text-gray-800">
+                  {row.店號}
+                </div>
+                <div className="break-words text-sm font-medium text-gray-800">
+                  {row.店名}
+                </div>
+              </>
+            ) : (
+              <div className="text-sm text-gray-300">未設定門市</div>
+            )}
+            <div className="break-words text-[11px] text-gray-400">
               {row.型態 && `型態 ${row.型態}`}
               {row.課別 && `　課別 ${row.課別}`}
             </div>

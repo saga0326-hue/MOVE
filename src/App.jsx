@@ -147,7 +147,7 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-100">
       <header className="border-b border-gray-200 bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-4">
+        <div className="mx-auto max-w-[1800px] px-4 py-4">
           <h1 className="mb-3 text-xl font-bold text-gray-800">
             盤點班表調移系統
           </h1>
@@ -179,7 +179,7 @@ function App() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-5">
+      <main className="mx-auto max-w-[1800px] px-4 py-5">
         {!scheduleData ? (
           <div
             onDragOver={(e) => {

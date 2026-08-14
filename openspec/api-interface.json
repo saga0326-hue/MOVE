@@ -1,0 +1,118 @@
+{
+  "systemName": "盤點班表調移系統",
+  "version": "1.0.0",
+  "description": "前端與後端介接規格。前端為純靜態 SPA，僅透過下列兩支唯讀 API 取得人員資料；班表本身仍由使用者匯入 Excel、於前端記憶體處理，不經後端。",
+  "baseUrl": {
+    "envVar": "VITE_API_BASE_URL",
+    "default": "/api",
+    "note": "前端以環境變數決定 API 位址，未設定時走同網域 /api。實作於 src/services/staffApi.js。"
+  },
+  "conventions": {
+    "method": "GET",
+    "contentType": "application/json; charset=utf-8",
+    "fieldNaming": "欄位名稱沿用現行 Excel 中文標題，降低對照成本",
+    "auth": "尚未指定。前端預設 credentials: 'same-origin'，如需 Token 請告知以便調整 src/services/staffApi.js",
+    "errorHandling": "非 2xx 時前端會顯示提示並退回『僅統計班表內代號』模式，不會中斷班表操作"
+  },
+  "endpoints": [
+    {
+      "name": "取得人員通訊錄",
+      "method": "GET",
+      "path": "/staff/roster",
+      "purpose": "提供完整人員名單，用於（1）將班表『預定盤點者』的單字代號還原為姓名（2）顯示當日未被排班的人員",
+      "queryParams": [
+        {
+          "name": "dept",
+          "type": "string[]",
+          "required": true,
+          "description": "課別，可重複帶入多個。前端會依匯入班表中出現的課別自動帶入",
+          "example": ["北一課"]
+        }
+      ],
+      "requestExample": "GET /api/staff/roster?dept=北一課",
+      "responseExample": [
+        {
+          "課別": "北一課",
+          "工號": "09812013",
+          "姓名": "趙千皓",
+          "職稱": "課長",
+          "班表代號": "皓"
+        },
+        {
+          "課別": "北一課",
+          "工號": "09812019",
+          "姓名": "張昭儀",
+          "職稱": "資深專員",
+          "班表代號": "昭"
+        }
+      ],
+      "fieldSpec": {
+        "課別": { "type": "string", "required": true, "note": "篩選依據" },
+        "工號": { "type": "string", "required": true, "note": "前端用作 React key，需唯一" },
+        "姓名": { "type": "string", "required": true, "note": "與休假 API 的『姓名』必須一致，前端以此關聯兩支 API" },
+        "職稱": { "type": "string", "required": false, "note": "顯示於滑鼠提示" },
+        "班表代號": {
+          "type": "string",
+          "required": true,
+          "note": "單一中文字，對應班表『預定盤點者』欄位中代表該員的字。同一課別內必須唯一，否則統計會失準"
+        }
+      }
+    },
+    {
+      "name": "取得人員休假資料",
+      "method": "GET",
+      "path": "/staff/leave",
+      "purpose": "用於標示當日休假人員（淡藍色），並偵測『已休假卻仍被排班』的異常",
+      "queryParams": [
+        {
+          "name": "dept",
+          "type": "string[]",
+          "required": true,
+          "description": "課別，可重複帶入多個",
+          "example": ["北一課"]
+        },
+        {
+          "name": "yearMonth",
+          "type": "string[]",
+          "required": true,
+          "description": "查詢年月，格式 yyyyMM，可重複帶入。前端依匯入班表涵蓋的月份自動帶入（班表可能跨月）",
+          "example": ["202607", "202608"]
+        }
+      ],
+      "requestExample": "GET /api/staff/leave?dept=北一課&yearMonth=202607&yearMonth=202608",
+      "responseExample": [
+        {
+          "課別": "北一課",
+          "姓名": "劉育青",
+          "假別": "特休",
+          "休假日期": ["20260807", "20260817", "20260825"]
+        },
+        {
+          "課別": "北一課",
+          "姓名": "張昭儀",
+          "假別": "生日假",
+          "休假日期": ["20260805"]
+        }
+      ],
+      "fieldSpec": {
+        "課別": { "type": "string", "required": true },
+        "姓名": { "type": "string", "required": true, "note": "須與通訊錄 API 的『姓名』完全一致（含空白差異），前端以此關聯" },
+        "假別": { "type": "string", "required": true, "note": "如 特休／換休／生日假，原樣顯示於提示與警告橫幅" },
+        "休假日期": {
+          "type": "string[]",
+          "required": true,
+          "note": "yyyyMMdd 完整日期陣列。原 Excel 為『8/19、8/20、8/21』且無年份，請由後端展開為完整日期，前端不再做字串拆解"
+        }
+      },
+      "notes": [
+        "同一人可有多筆紀錄（不同假別各一筆），前端會自行合併",
+        "無休假者可省略該筆，不需回傳『無』字樣"
+      ]
+    }
+  ],
+  "outOfScope": [
+    "班表資料（匯入／匯出）：維持由使用者操作 Excel，前端本地處理，不需後端",
+    "店暫存區與店庫異動：維持前端 Excel 匯入",
+    "拖曳調移結果：僅存在於前端記憶體，使用者按『匯出 Excel』取回，無寫回需求"
+  ]
+}

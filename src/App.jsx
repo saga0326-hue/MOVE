@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { DragDropContext } from '@hello-pangea/dnd';
-import { Upload, Download, CalendarDays, Users, CalendarOff } from 'lucide-react';
+import { Upload, Download, CalendarDays } from 'lucide-react';
 import {
   parseScheduleFile,
   exportScheduleFile,
@@ -8,19 +8,19 @@ import {
   mergeStorePool,
 } from './utils/scheduleParser';
 import {
-  parseRosterFile,
-  parseLeaveFile,
   getScheduleDepartments,
-} from './utils/staffParser';
+  getScheduleYearMonths,
+} from './utils/staffUtils';
+import { fetchRoster, fetchLeave } from './services/staffApi';
+import { formatDateLabel } from './utils/date';
+import { indexStoreOccurrences } from './utils/duplicates';
+import DuplicateStoreBanner from './components/DuplicateStoreBanner';
 import {
   decodeDroppableId,
   swapFields,
   getSlotStoreFields,
   setSlotStoreFields,
 } from './utils/dnd';
-import { formatDateLabel } from './utils/date';
-import { indexStoreOccurrences } from './utils/duplicates';
-import DuplicateStoreBanner from './components/DuplicateStoreBanner';
 import ScheduleBoard from './components/ScheduleBoard';
 import DateSwitcher from './components/DateSwitcher';
 import StorePoolPanel from './components/StorePoolPanel';
@@ -33,35 +33,12 @@ function App() {
   const [storePool, setStorePool] = useState([]);
   const [roster, setRoster] = useState([]);
   const [leaveRecords, setLeaveRecords] = useState([]);
+  const [staffApiError, setStaffApiError] = useState('');
   const [error, setError] = useState('');
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const fileInputRef = useRef(null);
-  const rosterInputRef = useRef(null);
-  const leaveInputRef = useRef(null);
 
   const handleImportClick = () => fileInputRef.current?.click();
-
-  // 通訊錄／休假表共用的匯入流程：解析成功才覆蓋既有資料
-  const makeStaffImporter = (parse, apply, label) => async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      setError('');
-      apply(await parse(file));
-    } catch (err) {
-      console.error(err);
-      setError(
-        err instanceof Error && err.message
-          ? err.message
-          : `${label}匯入失敗，請確認檔案格式是否正確（.xlsx）。`
-      );
-    } finally {
-      e.target.value = '';
-    }
-  };
-
-  const handleRosterChange = makeStaffImporter(parseRosterFile, setRoster, '通訊錄');
-  const handleLeaveChange = makeStaffImporter(parseLeaveFile, setLeaveRecords, '休假表');
 
   const processScheduleFile = async (file) => {
     try {
@@ -214,8 +191,40 @@ function App() {
   const groups = scheduleData?.byDate[selectedDate];
   // 課別依整份班表判斷，避免週日等無排班日抓不到而列出全部課別人員
   const departments = useMemo(() => getScheduleDepartments(scheduleData), [scheduleData]);
+  const yearMonths = useMemo(() => getScheduleYearMonths(scheduleData), [scheduleData]);
   // 店號 -> 已排定位置，供暫存區卡片與重複提醒使用
   const occurrenceIndex = useMemo(() => indexStoreOccurrences(scheduleData), [scheduleData]);
+
+  // 班表匯入後，依其課別與年月向後端取得人員通訊錄與休假資料
+  // API 尚未就緒時僅顯示提示，班表功能仍可正常操作（出勤列會退回只統計班表內出現的代號）
+  useEffect(() => {
+    if (departments.size === 0) return;
+    let cancelled = false;
+    const deptList = [...departments];
+
+    (async () => {
+      try {
+        setStaffApiError('');
+        const [rosterData, leaveData] = await Promise.all([
+          fetchRoster(deptList),
+          fetchLeave(deptList, yearMonths),
+        ]);
+        if (cancelled) return;
+        setRoster(rosterData);
+        setLeaveRecords(leaveData);
+      } catch (err) {
+        if (cancelled) return;
+        console.error(err);
+        setRoster([]);
+        setLeaveRecords([]);
+        setStaffApiError('人員資料 API 尚未連線，出勤統計改以班表內容顯示。');
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [departments, yearMonths]);
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -232,50 +241,12 @@ function App() {
               className="hidden"
               onChange={handleFileChange}
             />
-            <input
-              ref={rosterInputRef}
-              type="file"
-              accept=".xlsx,.xls"
-              className="hidden"
-              onChange={handleRosterChange}
-            />
-            <input
-              ref={leaveInputRef}
-              type="file"
-              accept=".xlsx,.xls"
-              className="hidden"
-              onChange={handleLeaveChange}
-            />
             <button
               onClick={handleImportClick}
               className="flex items-center gap-1.5 rounded-lg bg-purple-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-purple-700"
             >
               <Upload size={16} />
               匯入班表
-            </button>
-            <button
-              onClick={() => rosterInputRef.current?.click()}
-              className="flex items-center gap-1.5 rounded-lg bg-white px-3.5 py-2 text-sm font-medium text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50"
-            >
-              <Users size={16} />
-              匯入通訊錄
-              {roster.length > 0 && (
-                <span className="rounded bg-green-100 px-1.5 py-0.5 text-[11px] font-medium text-green-700">
-                  {roster.length} 人
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => leaveInputRef.current?.click()}
-              className="flex items-center gap-1.5 rounded-lg bg-white px-3.5 py-2 text-sm font-medium text-gray-700 ring-1 ring-gray-300 hover:bg-gray-50"
-            >
-              <CalendarOff size={16} />
-              匯入休假表
-              {leaveRecords.length > 0 && (
-                <span className="rounded bg-green-100 px-1.5 py-0.5 text-[11px] font-medium text-green-700">
-                  {new Set(leaveRecords.map((r) => r.姓名)).size} 人
-                </span>
-              )}
             </button>
             <button
               onClick={handleExport}
@@ -286,6 +257,9 @@ function App() {
               匯出 Excel
             </button>
             {error && <span className="text-sm text-red-500">{error}</span>}
+            {staffApiError && (
+              <span className="text-sm text-amber-600">{staffApiError}</span>
+            )}
           </div>
         </div>
       </header>

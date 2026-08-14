@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { AlertTriangle } from 'lucide-react';
-import { countAssignmentsByCode, getLeaveOnDate } from '../utils/staffParser';
+import { countAssignmentsByCode, getLeaveOnDate } from '../utils/staffUtils';
 
 /**
  * 找出「當天有休假、卻仍被排進班表」的人並列出所在組別

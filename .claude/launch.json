@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 5173
+    },
+    {
+      "name": "handover-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "../MOVE-handover", "run", "dev"],
+      "port": 5174
     }
   ]
 }

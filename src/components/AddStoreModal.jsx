@@ -1,8 +1,15 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
+import { formatDateLabel } from '../utils/date';
 
-export default function AddStoreModal({ onClose, onSave }) {
-  const [form, setForm] = useState({ 店號: '', 店名: '', 型態: '', 課別: '' });
+export default function AddStoreModal({ onClose, onSave, dates = [], defaultDate = '' }) {
+  const [form, setForm] = useState({
+    店號: '',
+    店名: '',
+    型態: '',
+    課別: '',
+    _date: defaultDate, // 指定日期；空字串代表不限日期
+  });
 
   const update = (field) => (e) =>
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
@@ -33,6 +40,27 @@ export default function AddStoreModal({ onClose, onSave }) {
           </div>
           <Field label="店名" value={form.店名} onChange={update('店名')} />
           <Field label="課別" value={form.課別} onChange={update('課別')} />
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-500">
+              指定日期
+            </label>
+            <select
+              value={form._date}
+              onChange={update('_date')}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-400 focus:outline-none focus:ring-1 focus:ring-purple-400"
+            >
+              <option value="">不限日期（任何日期都可放）</option>
+              {dates.map((d) => (
+                <option key={d} value={d}>
+                  {formatDateLabel(d)}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-[11px] text-gray-400">
+              指定後只能拖曳到該日期的槽位，其他日期會擋下。
+            </p>
+          </div>
 
           <div className="flex justify-end gap-2 pt-2">
             <button

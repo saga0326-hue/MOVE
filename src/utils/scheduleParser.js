@@ -168,10 +168,55 @@ export async function parseScheduleFile(file) {
 }
 
 /**
- * 解析「店庫異動」Excel（只需包含店號欄位，型態/店名/課別等欄位皆為選填）
- * -> 門市資料陣列 [{ 店號, 店名, 型態, 課別, ... }]
+ * 將各種日期寫法正規化為 yyyymmdd；無法辨識則回傳空字串
+ *
+ * 支援：
+ *   完整日期 20260803 / 2026-08-03 / 2026/8/3 / 2026年8月3日
+ *   省略年份 8/3 / 8-3 / 8月3日 -> 以 scheduleDates 對照補上年份
+ *
+ * @param {*} value 儲存格內容
+ * @param {string[]} scheduleDates 已匯入班表的日期清單（yyyymmdd），用來補年份
  */
-export async function parseStorePoolFile(file) {
+export function normalizeDate(value, scheduleDates = []) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+
+  // 1. 完整年月日
+  if (/^\d{8}$/.test(raw)) return raw;
+  const full = raw.match(/^(\d{4})\s*[/\-.年]\s*(\d{1,2})\s*[/\-.月]\s*(\d{1,2})/);
+  if (full) {
+    return `${full[1]}${full[2].padStart(2, '0')}${full[3].padStart(2, '0')}`;
+  }
+
+  // 2. 只有月/日 -> 對照班表日期補年份
+  const md = raw.match(/^(\d{1,2})\s*[/\-.月]\s*(\d{1,2})/);
+  if (!md) return '';
+  const month = Number(md[1]);
+  const day = Number(md[2]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return '';
+
+  const hit = scheduleDates.find(
+    (d) => Number(d.slice(4, 6)) === month && Number(d.slice(6, 8)) === day
+  );
+  if (hit) return hit;
+
+  // 3. 班表沒有這一天：沿用班表中同月份的年份，再退而求其次用第一個日期的年份
+  const sameMonth = scheduleDates.find((d) => Number(d.slice(4, 6)) === month);
+  const year = (sameMonth ?? scheduleDates[0] ?? '').slice(0, 4);
+  if (!year) return '';
+  return `${year}${String(month).padStart(2, '0')}${String(day).padStart(2, '0')}`;
+}
+
+/**
+ * 解析「店庫異動」Excel
+ * 必要欄位：店號
+ * 選填欄位：店名、型態、課別、前次盤點…等（未預期欄位一律保留）
+ * 特殊欄位：日期 -> 轉為該店的指定日期限制（_date），不會寫進班表資料列
+ *
+ * @param {File} file 上傳的檔案
+ * @param {string[]} scheduleDates 已匯入班表的日期，供「8/3」這類省略年份的寫法補年份
+ */
+export async function parseStorePoolFile(file, scheduleDates = []) {
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: 'array' });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -184,7 +229,10 @@ export async function parseStorePoolFile(file) {
     throw new Error('找不到欄位標題列（需包含「店號」欄位）');
   }
 
-  const columns = buildColumns(rawRows[headerIdx]).filter(
+  const allColumns = buildColumns(rawRows[headerIdx]);
+  // 日期欄另外取出當作指定日期限制
+  const dateColumn = allColumns.find((c) => c.key === '日期');
+  const columns = allColumns.filter(
     (c) => !STRUCTURAL_KEYS.includes(c.key) && !STAFF_KEYS.includes(c.key)
   );
   if (!columns.some((c) => c.key === '店號')) {
@@ -197,6 +245,10 @@ export async function parseStorePoolFile(file) {
     if (!arr || arr.every((c) => String(c ?? '').trim() === '')) continue;
     const row = rowArrayToObject(arr, columns);
     if (!row['店號']) continue;
+    if (dateColumn) {
+      const d = normalizeDate(arr[dateColumn.index], scheduleDates);
+      if (d) row._date = d;
+    }
     stores.push(row);
   }
   return stores;

@@ -10,6 +10,16 @@ export function formatDateLabel(yyyymmdd) {
   return `${month}/${day} 週${weekday}`;
 }
 
+/** yyyymmdd -> 0(週日) ~ 6(週六)，格式不符回傳 -1 */
+export function getWeekday(yyyymmdd) {
+  if (!yyyymmdd || yyyymmdd.length !== 8) return -1;
+  return new Date(
+    Number(yyyymmdd.slice(0, 4)),
+    Number(yyyymmdd.slice(4, 6)) - 1,
+    Number(yyyymmdd.slice(6, 8))
+  ).getDay();
+}
+
 /** yyyymmdd -> 'MM/DD' */
 export function formatDateShort(yyyymmdd) {
   if (!yyyymmdd || yyyymmdd.length !== 8) return yyyymmdd ?? '';

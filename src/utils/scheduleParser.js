@@ -5,8 +5,16 @@ export const ROWS_PER_DATE = GROUPS_PER_DATE * 2;
 
 // 結構性欄位：由槽位位置決定，不隨拖曳互換移動（序在匯出時會依位置重新編號）
 const STRUCTURAL_KEYS = ['序', '午別', '日期'];
+
 // 人員/業務資訊卡片欄位
-const STAFF_KEYS = ['預定盤點者', '備註'];
+// 「人力」＝該槽位人數、「盤點1～8」＝依序對應預定盤點者每個代號的工號，
+// 兩者皆隨人員移動，不屬於門市；已比對 390 列實際資料確認 1:1 對應
+const STAFF_KEYS = ['預定盤點者', '備註', '人力'];
+const STAFF_KEY_PATTERN = /^盤點\s*\d+$/;
+
+function isStaffKey(key) {
+  return STAFF_KEYS.includes(key) || STAFF_KEY_PATTERN.test(key);
+}
 
 // 部分欄位需要補零成固定長度（依實際檔案格式：店號6碼、型態4碼、日期/前次盤點8碼、序2碼）
 const PAD_RULES = { 店號: 6, 型態: 4, 日期: 8, 前次盤點: 8, 序: 2 };
@@ -161,8 +169,8 @@ export async function parseScheduleFile(file) {
 
   const storeKeys = columns
     .map((c) => c.key)
-    .filter((k) => !STRUCTURAL_KEYS.includes(k) && !STAFF_KEYS.includes(k));
-  const staffKeys = columns.map((c) => c.key).filter((k) => STAFF_KEYS.includes(k));
+    .filter((k) => !STRUCTURAL_KEYS.includes(k) && !isStaffKey(k));
+  const staffKeys = columns.map((c) => c.key).filter((k) => isStaffKey(k));
 
   return { dates: dateOrder, byDate, columns, storeKeys, staffKeys };
 }
@@ -233,7 +241,7 @@ export async function parseStorePoolFile(file, scheduleDates = []) {
   // 日期欄另外取出當作指定日期限制
   const dateColumn = allColumns.find((c) => c.key === '日期');
   const columns = allColumns.filter(
-    (c) => !STRUCTURAL_KEYS.includes(c.key) && !STAFF_KEYS.includes(c.key)
+    (c) => !STRUCTURAL_KEYS.includes(c.key) && !isStaffKey(c.key)
   );
   if (!columns.some((c) => c.key === '店號')) {
     throw new Error('找不到「店號」欄位');

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
 
-export default function EditModal({ slot, onClose, onSave }) {
+export default function EditModal({ slot, onClose, onSave, codeMap }) {
   const [form, setForm] = useState({
     店號: slot.row.店號,
     店名: slot.row.店名,
@@ -52,11 +52,14 @@ export default function EditModal({ slot, onClose, onSave }) {
             />
           </div>
           <hr className="border-gray-100" />
-          <Field
-            label="預定盤點者"
-            value={form.預定盤點者}
-            onChange={update('預定盤點者')}
-          />
+          <div>
+            <Field
+              label="預定盤點者"
+              value={form.預定盤點者}
+              onChange={update('預定盤點者')}
+            />
+            <CodePreview value={form.預定盤點者} codeMap={codeMap} />
+          </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-500">
               備註
@@ -87,6 +90,40 @@ export default function EditModal({ slot, onClose, onSave }) {
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+/** 即時顯示每個代號對應到的工號，存檔時會一併寫入盤點1～8 */
+function CodePreview({ value, codeMap }) {
+  const codes = Array.from(String(value ?? '').trim()).filter((c) => c.trim());
+  if (!codeMap || codes.length === 0) return null;
+
+  const unknown = codes.filter((c) => !codeMap.get(c));
+
+  return (
+    <div className="mt-1.5">
+      <div className="flex flex-wrap items-center gap-1">
+        <span className="text-[11px] text-gray-400">人力 {codes.length}／工號</span>
+        {codes.map((code, i) => {
+          const id = codeMap.get(code);
+          return (
+            <span
+              key={`${code}-${i}`}
+              className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${
+                id ? 'bg-teal-50 text-teal-700' : 'bg-red-50 text-red-600'
+              }`}
+            >
+              {code} {id ?? '查無'}
+            </span>
+          );
+        })}
+      </div>
+      {unknown.length > 0 && (
+        <p className="mt-1 text-[11px] text-red-500">
+          「{unknown.join('、')}」在班表中查無工號，儲存後對應的盤點欄位會留空。
+        </p>
+      )}
     </div>
   );
 }

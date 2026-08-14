@@ -2,9 +2,16 @@ import { useState } from 'react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { Store, User, Pencil, GripVertical } from 'lucide-react';
 import { encodeSlotId } from '../utils/dnd';
+import { syncStaffDerivedFields } from '../utils/staffUtils';
 import EditModal from './EditModal';
 
-export default function ScheduleBoard({ groups, onChangeGroups }) {
+export default function ScheduleBoard({
+  groups,
+  onChangeGroups,
+  codeMap,
+  inspectionKeys = [],
+  onNotify,
+}) {
   const [editingSlot, setEditingSlot] = useState(null);
 
   const openEdit = (groupIndex, shift) => {
@@ -17,8 +24,22 @@ export default function ScheduleBoard({ groups, onChangeGroups }) {
     const { groupIndex, shift } = editingSlot;
     const next = groups.map((g) => ({ ...g, shift1: { ...g.shift1 }, shift2: { ...g.shift2 } }));
     const key = shift === 1 ? 'shift1' : 'shift2';
-    next[groupIndex - 1][key] = { ...next[groupIndex - 1][key], ...form };
+    const merged = { ...next[groupIndex - 1][key], ...form };
+
+    // 人員異動後同步人力與盤點1～8 的工號，避免與實際人員對不上
+    const { row, unknownCodes } = syncStaffDerivedFields(
+      merged,
+      codeMap ?? new Map(),
+      inspectionKeys
+    );
+    next[groupIndex - 1][key] = row;
+
     onChangeGroups(next);
+    onNotify?.(
+      unknownCodes.length
+        ? `已更新，但代號「${unknownCodes.join('、')}」在班表中查無工號，對應的盤點欄位留空。`
+        : ''
+    );
     setEditingSlot(null);
   };
 
@@ -56,6 +77,7 @@ export default function ScheduleBoard({ groups, onChangeGroups }) {
       {editingSlot && (
         <EditModal
           slot={editingSlot}
+          codeMap={codeMap}
           onClose={() => setEditingSlot(null)}
           onSave={saveEdit}
         />

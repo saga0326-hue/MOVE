@@ -10,6 +10,8 @@ import {
 import {
   getScheduleDepartments,
   getScheduleYearMonths,
+  buildCodeToIdMap,
+  getInspectionKeys,
 } from './utils/staffUtils';
 import { fetchRoster, fetchLeave } from './services/staffApi';
 import { formatDateLabel } from './utils/date';
@@ -194,6 +196,9 @@ function App() {
   const yearMonths = useMemo(() => getScheduleYearMonths(scheduleData), [scheduleData]);
   // 店號 -> 已排定位置，供暫存區卡片與重複提醒使用
   const occurrenceIndex = useMemo(() => indexStoreOccurrences(scheduleData), [scheduleData]);
+  // 代號 -> 工號，直接從班表的「預定盤點者 ↔ 盤點1~8」對應關係還原
+  const codeMap = useMemo(() => buildCodeToIdMap(scheduleData), [scheduleData]);
+  const inspectionKeys = useMemo(() => getInspectionKeys(scheduleData), [scheduleData]);
 
   // 班表匯入後，依其課別與年月向後端取得人員通訊錄與休假資料
   // API 尚未就緒時僅顯示提示，班表功能仍可正常操作（出勤列會退回只統計班表內出現的代號）
@@ -312,7 +317,13 @@ function App() {
             />
             <div className="flex items-start gap-4">
               <div className="min-w-0 flex-1">
-                <ScheduleBoard groups={groups} onChangeGroups={handleChangeGroups} />
+                <ScheduleBoard
+                  groups={groups}
+                  onChangeGroups={handleChangeGroups}
+                  codeMap={codeMap}
+                  inspectionKeys={inspectionKeys}
+                  onNotify={setError}
+                />
               </div>
               <StorePoolPanel
                 pool={storePool}

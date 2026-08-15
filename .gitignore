@@ -9,8 +9,12 @@ lerna-debug.log*
 
 node_modules
 dist
+dist-standalone
 dist-ssr
 *.local
+
+# 匯入用的班表／人員 Excel（含個資，不進版控）
+*.xlsx
 
 # Editor directories and files
 .vscode/*

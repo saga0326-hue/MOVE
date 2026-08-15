@@ -1,19 +1,34 @@
 import { useState } from 'react';
-import { X } from 'lucide-react';
+import { X, CornerDownRight } from 'lucide-react';
+import { lookupStore } from '../utils/storeMaster';
 
-export default function EditModal({ slot, onClose, onSave, codeMap }) {
+export default function EditModal({ slot, onClose, onSave, codeMap, storeMaster }) {
   const [form, setForm] = useState({
     店號: slot.row.店號,
     店名: slot.row.店名,
     型態: slot.row.型態,
     課別: slot.row.課別,
+    課別代號: slot.row.課別代號 ?? '',
+    營業課別: slot.row.營業課別 ?? '',
     前次盤點: slot.row.前次盤點,
     預定盤點者: slot.row.預定盤點者,
     備註: slot.row.備註,
   });
+  const [autoFilled, setAutoFilled] = useState(false);
 
-  const update = (field) => (e) =>
-    setForm((prev) => ({ ...prev, [field]: e.target.value }));
+  const update = (field) => (e) => {
+    const value = e.target.value;
+    setForm((prev) => {
+      const next = { ...prev, [field]: value };
+      // 輸入店號時，若班表中查得到該店，一併帶入其餘門市欄位
+      if (field === '店號') {
+        const found = lookupStore(storeMaster, value);
+        setAutoFilled(!!found);
+        if (found) Object.assign(next, found);
+      }
+      return next;
+    });
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -51,6 +66,7 @@ export default function EditModal({ slot, onClose, onSave, codeMap }) {
               onChange={update('前次盤點')}
             />
           </div>
+          <StorePreview form={form} storeMaster={storeMaster} autoFilled={autoFilled} />
           <hr className="border-gray-100" />
           <div>
             <Field
@@ -91,6 +107,48 @@ export default function EditModal({ slot, onClose, onSave, codeMap }) {
         </form>
       </div>
     </div>
+  );
+}
+
+/**
+ * 顯示由店號帶出的課別代號與營業課別（這兩欄不直接編輯，隨店號連動）
+ */
+function StorePreview({ form, storeMaster, autoFilled }) {
+  if (!storeMaster || storeMaster.size === 0) return null;
+  const known = !!lookupStore(storeMaster, form.店號);
+  if (!form.店號) return null;
+
+  return (
+    <div className="rounded-lg bg-gray-50 px-3 py-2">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-[11px] text-gray-400">連動欄位</span>
+        <Chip label="課別代號" value={form.課別代號} ok={known} />
+        <Chip label="營業課別" value={form.營業課別} ok={known} />
+      </div>
+      {autoFilled && (
+        <p className="mt-1 flex items-center gap-1 text-[11px] text-teal-600">
+          <CornerDownRight size={10} />
+          已依店號自動帶入店名、型態、課別與上列欄位
+        </p>
+      )}
+      {!known && (
+        <p className="mt-1 text-[11px] text-gray-400">
+          此店號不在班表中，連動欄位維持原值，可視需要自行確認。
+        </p>
+      )}
+    </div>
+  );
+}
+
+function Chip({ label, value, ok }) {
+  return (
+    <span
+      className={`rounded px-1.5 py-0.5 text-[11px] font-medium ${
+        value ? (ok ? 'bg-purple-50 text-purple-700' : 'bg-gray-100 text-gray-500') : 'bg-gray-100 text-gray-400'
+      }`}
+    >
+      {label} {value || '—'}
+    </span>
   );
 }
 

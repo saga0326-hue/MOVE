@@ -16,6 +16,7 @@ import {
 import { fetchRoster, fetchLeave } from './services/staffApi';
 import { formatDateLabel } from './utils/date';
 import { indexStoreOccurrences } from './utils/duplicates';
+import { buildStoreMaster } from './utils/storeMaster';
 import DuplicateStoreBanner from './components/DuplicateStoreBanner';
 import {
   decodeDroppableId,
@@ -199,6 +200,8 @@ function App() {
   // 代號 -> 工號，直接從班表的「預定盤點者 ↔ 盤點1~8」對應關係還原
   const codeMap = useMemo(() => buildCodeToIdMap(scheduleData), [scheduleData]);
   const inspectionKeys = useMemo(() => getInspectionKeys(scheduleData), [scheduleData]);
+  // 店號 -> 門市屬性（店名／型態／課別／課別代號／營業課別／前次盤點），同樣由班表推導
+  const storeMaster = useMemo(() => buildStoreMaster(scheduleData), [scheduleData]);
 
   // 班表匯入後，依其課別與年月向後端取得人員通訊錄與休假資料
   // API 尚未就緒時僅顯示提示，班表功能仍可正常操作（出勤列會退回只統計班表內出現的代號）
@@ -322,6 +325,7 @@ function App() {
                   onChangeGroups={handleChangeGroups}
                   codeMap={codeMap}
                   inspectionKeys={inspectionKeys}
+                  storeMaster={storeMaster}
                   onNotify={setError}
                 />
               </div>
@@ -333,6 +337,7 @@ function App() {
                 dates={scheduleData.dates}
                 selectedDate={selectedDate}
                 occurrenceIndex={occurrenceIndex}
+                storeMaster={storeMaster}
               />
             </div>
           </DragDropContext>

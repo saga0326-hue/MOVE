@@ -10,6 +10,7 @@ export default function ScheduleBoard({
   onChangeGroups,
   codeMap,
   inspectionKeys = [],
+  storeMaster,
   onNotify,
 }) {
   const [editingSlot, setEditingSlot] = useState(null);
@@ -78,6 +79,7 @@ export default function ScheduleBoard({
         <EditModal
           slot={editingSlot}
           codeMap={codeMap}
+          storeMaster={storeMaster}
           onClose={() => setEditingSlot(null)}
           onSave={saveEdit}
         />

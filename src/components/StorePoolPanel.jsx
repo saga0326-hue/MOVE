@@ -24,6 +24,7 @@ export default function StorePoolPanel({
   dates = [],
   selectedDate = '',
   occurrenceIndex,
+  storeMaster,
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
@@ -212,6 +213,7 @@ export default function StorePoolPanel({
         <AddStoreModal
           dates={dates}
           defaultDate={selectedDate}
+          storeMaster={storeMaster}
           onClose={() => setShowAdd(false)}
           onSave={(form) => {
             onAdd(form);

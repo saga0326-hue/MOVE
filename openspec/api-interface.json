@@ -1,32 +1,39 @@
 {
   "systemName": "盤點班表調移系統",
-  "version": "1.1.0",
-  "description": "前端與後端介接規格。前端為純靜態 SPA，僅透過下列兩支唯讀 API 取得人員資料；班表本身仍由使用者匯入 Excel、於前端記憶體處理，不經後端。",
-  "note_工號對照": "人員代號與工號的對照由前端從班表的『預定盤點者』與『盤點1~8』欄位自行推導，不需 API 提供。通訊錄 API 的價值在於姓名、職稱與完整名單（用於顯示未排班人員），以及作為休假資料（以姓名為鍵）與代號之間的橋接。",
+  "systemCode": "INV-SHIFT",
+  "version": "2.0.0",
+  "description": "前端與後端介接規格。前端為純靜態 SPA，僅透過下列三支唯讀 API 取得參考資料；班表本身由使用者匯入 Excel、於前端記憶體處理，不經後端，系統亦不回寫任何資料。",
+  "notes": {
+    "工號對照": "人員代號與工號的對照由前端自班表的『預定盤點者』與『盤點1~8』欄位推導（實測 390 列建出 28 個代號、零衝突），不需 API 提供。通訊錄 API 的價值在於姓名、職稱與完整名單，以及作為休假資料（以姓名為鍵）與代號之間的橋接。",
+    "門市主檔": "班表中出現過的門市同樣可由前端推導（實測 393 間門市六個欄位皆 1 對 1）。店鋪檔 API 用於補齊『不在班表中』的門市：新開店、其他月份因閉店／轉手／解約而臨時排入者、跨課別支援門市。",
+    "降級行為": "任一 API 失敗時前端顯示提示並降級，班表匯入、拖曳調移、就地編輯、匯出、店暫存區與重複盤點警告皆不受影響。"
+  },
   "baseUrl": {
     "envVar": "VITE_API_BASE_URL",
     "default": "/api",
-    "note": "前端以環境變數決定 API 位址，未設定時走同網域 /api。實作於 src/services/staffApi.js。"
+    "note": "前端以環境變數決定 API 位址，未設定時走同網域 /api。實作於 src/services/staffApi.js 與 src/services/storeApi.js。"
   },
   "conventions": {
     "method": "GET",
     "contentType": "application/json; charset=utf-8",
     "fieldNaming": "欄位名稱沿用現行 Excel 中文標題，降低對照成本",
-    "auth": "尚未指定。前端預設 credentials: 'same-origin'，如需 Token 請告知以便調整 src/services/staffApi.js",
-    "errorHandling": "非 2xx 時前端會顯示提示並退回『僅統計班表內代號』模式，不會中斷班表操作"
+    "auth": "尚未指定。前端預設 credentials: 'same-origin'，如需 Token／SSO 請告知以便調整",
+    "arrayParams": "可重複帶入同名參數表示多值，例如 ?dept=北一課&dept=北二課",
+    "errorHandling": "非 2xx 時前端顯示提示並降級，不會中斷班表操作"
   },
   "endpoints": [
     {
       "name": "取得人員通訊錄",
       "method": "GET",
       "path": "/staff/roster",
-      "purpose": "提供完整人員名單，用於（1）將班表『預定盤點者』的單字代號還原為姓名與職稱（2）顯示當日未被排班的人員（3）作為休假資料與代號之間的橋接。注意：工號對照前端可自班表推導，不倚賴此 API",
+      "implementedIn": "src/services/staffApi.js → fetchRoster()",
+      "purpose": "提供完整人員名單，用於（1）將班表『預定盤點者』的單字代號還原為姓名與職稱（2）顯示當日未被排班的人員（3）作為休假資料與代號之間的橋接",
       "queryParams": [
         {
           "name": "dept",
           "type": "string[]",
           "required": true,
-          "description": "課別，可重複帶入多個。前端會依匯入班表中出現的課別自動帶入",
+          "description": "課別，可重複帶入多個。前端依匯入班表中出現的課別自動帶入",
           "example": ["北一課"]
         }
       ],
@@ -50,12 +57,12 @@
       "fieldSpec": {
         "課別": { "type": "string", "required": true, "note": "篩選依據" },
         "工號": { "type": "string", "required": true, "note": "前端用作 React key，需唯一" },
-        "姓名": { "type": "string", "required": true, "note": "與休假 API 的『姓名』必須一致，前端以此關聯兩支 API" },
+        "姓名": { "type": "string", "required": true, "note": "與休假 API 的『姓名』必須完全一致，前端以此關聯兩者" },
         "職稱": { "type": "string", "required": false, "note": "顯示於滑鼠提示" },
         "班表代號": {
           "type": "string",
           "required": true,
-          "note": "單一中文字，對應班表『預定盤點者』欄位中代表該員的字。同一課別內必須唯一，否則統計會失準"
+          "note": "單一中文字，對應班表『預定盤點者』欄位中代表該員的字。同一課別內必須唯一，否則出勤統計會失準"
         }
       }
     },
@@ -63,7 +70,8 @@
       "name": "取得人員休假資料",
       "method": "GET",
       "path": "/staff/leave",
-      "purpose": "用於標示當日休假人員（淡藍色），並偵測『已休假卻仍被排班』的異常",
+      "implementedIn": "src/services/staffApi.js → fetchLeave()",
+      "purpose": "用於標示當日休假人員（淡藍色），並偵測『已休假卻仍被排班』的衝突",
       "queryParams": [
         {
           "name": "dept",
@@ -77,10 +85,10 @@
           "type": "string[]",
           "required": true,
           "description": "查詢年月，格式 yyyyMM，可重複帶入。前端依匯入班表涵蓋的月份自動帶入（班表可能跨月）",
-          "example": ["202607", "202608"]
+          "example": ["202608", "202609"]
         }
       ],
-      "requestExample": "GET /api/staff/leave?dept=北一課&yearMonth=202607&yearMonth=202608",
+      "requestExample": "GET /api/staff/leave?dept=北一課&yearMonth=202608&yearMonth=202609",
       "responseExample": [
         {
           "課別": "北一課",
@@ -97,7 +105,7 @@
       ],
       "fieldSpec": {
         "課別": { "type": "string", "required": true },
-        "姓名": { "type": "string", "required": true, "note": "須與通訊錄 API 的『姓名』完全一致（含空白差異），前端以此關聯" },
+        "姓名": { "type": "string", "required": true, "note": "須與通訊錄 API 的『姓名』完全一致（含全形半形與空白），前端以此關聯" },
         "假別": { "type": "string", "required": true, "note": "如 特休／換休／生日假，原樣顯示於提示與警告橫幅" },
         "休假日期": {
           "type": "string[]",
@@ -109,11 +117,53 @@
         "同一人可有多筆紀錄（不同假別各一筆），前端會自行合併",
         "無休假者可省略該筆，不需回傳『無』字樣"
       ]
+    },
+    {
+      "name": "取得店鋪檔",
+      "method": "GET",
+      "path": "/stores",
+      "implementedIn": "src/services/storeApi.js → fetchStoreMaster()",
+      "purpose": "補齊不在班表中的門市，使用者輸入店號或店名時仍能自動帶入資料。適用情境：新開店、其他月份因閉店／轉手／解約而本月臨時排入者、跨課別支援門市",
+      "queryParams": [
+        {
+          "name": "dept",
+          "type": "string[]",
+          "required": false,
+          "description": "課別，可重複帶入多個。未指定則回傳全省店庫",
+          "example": ["北一課"]
+        }
+      ],
+      "requestExample": "GET /api/stores?dept=北一課",
+      "responseExample": [
+        {
+          "店號": "025288",
+          "店名": "迪化店",
+          "型態": "FC",
+          "課別": "北一課",
+          "課別代號": "C001",
+          "營業課別": "SE72",
+          "前次盤點": "20260602"
+        }
+      ],
+      "fieldSpec": {
+        "店號": { "type": "string", "required": true, "note": "唯一鍵。建議補零至 6 碼，前端亦會自行補零" },
+        "店名": { "type": "string", "required": true, "note": "需唯一。前端提供『輸入店名反查店號』的功能，同名不同店號將只取第一筆" },
+        "型態": { "type": "string", "required": false, "note": "FC／RC／轉／解 等代碼，請勿補零" },
+        "課別": { "type": "string", "required": false },
+        "課別代號": { "type": "string", "required": false, "note": "如 C001。前端為唯讀顯示，隨店號連動" },
+        "營業課別": { "type": "string", "required": false, "note": "如 SE72。可重複（實測 393 間店僅用 17 種），但店號→營業課別方向須唯一" },
+        "前次盤點": { "type": "string", "required": false, "note": "yyyyMMdd" }
+      },
+      "notes": [
+        "主檔合併順序為：匯入班表 → 本 API → 目前暫存區。班表中已有的門市以班表為準",
+        "資料量可能較大（全省店庫），若需分頁或增量同步請告知以便調整前端"
+      ]
     }
   ],
   "outOfScope": [
     "班表資料（匯入／匯出）：維持由使用者操作 Excel，前端本地處理，不需後端",
-    "店暫存區與店庫異動：維持前端 Excel 匯入",
-    "拖曳調移結果：僅存在於前端記憶體，使用者按『匯出 Excel』取回，無寫回需求"
+    "店庫異動：維持前端 Excel 匯入",
+    "調移結果：僅存在於前端記憶體，使用者按『匯出 Excel』取回，無寫回需求",
+    "身份驗證與權限：目前為單機工具，若日後部署至伺服器再由資訊部評估"
   ]
 }

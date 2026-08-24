@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
-import { Store, User, Pencil, GripVertical, PackagePlus, XCircle, Plus } from 'lucide-react';
+import { Store, User, Pencil, GripVertical, PackagePlus, XCircle, Plus, Trash2, Eraser } from 'lucide-react';
 import { encodeSlotId, updateRow } from '../utils/dnd';
 import { buildDayGroups, shiftLabel } from '../utils/grouping';
 import { syncStaffDerivedFields } from '../utils/staffUtils';
@@ -11,6 +11,8 @@ export default function ScheduleBoard({
   onChangeRows,
   onMoveToPool,
   onAddGroup,
+  onDeleteGroup,
+  onClearEmptyGroups,
   codeMap,
   inspectionKeys = [],
   storeMaster,
@@ -19,6 +21,9 @@ export default function ScheduleBoard({
   const [editingRid, setEditingRid] = useState(null);
   const [selected, setSelected] = useState(() => new Set());
   const groups = useMemo(() => buildDayGroups(rows), [rows]);
+  // 整組都沒有門市也沒有人員者可刪除
+  const isEmptyGroup = (g) => g.rows.every((r) => !r.店號 && !r.預定盤點者);
+  const emptyCount = groups.filter(isEmptyGroup).length;
 
   const editingRow = rows.find((r) => r._rid === editingRid) ?? null;
 
@@ -83,11 +88,22 @@ export default function ScheduleBoard({
             key={group.key}
             className="rounded-xl border border-gray-200 bg-gray-50 p-3"
           >
-            <div className="mb-2 flex items-center justify-between">
+            <div className="mb-2 flex items-center justify-between gap-1">
               <span className="text-xs font-semibold text-gray-500">{group.label}</span>
-              <span className="text-[11px] text-gray-400">
-                {group.rows.filter((r) => r.店號).length} 間
-              </span>
+              <div className="flex items-center gap-1">
+                <span className="text-[11px] text-gray-400">
+                  {group.rows.filter((r) => r.店號).length} 間
+                </span>
+                {isEmptyGroup(group) && (
+                  <button
+                    onClick={() => onDeleteGroup?.(group.key)}
+                    className="rounded p-0.5 text-gray-300 hover:bg-red-50 hover:text-red-500"
+                    title="刪除這個空白組別"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                )}
+              </div>
             </div>
             <div className="grid grid-cols-1 gap-2">
               {group.rows.map((row) => (
@@ -114,6 +130,18 @@ export default function ScheduleBoard({
           </span>
         </button>
       </div>
+
+      {emptyCount >= 2 && (
+        <div className="mt-3 flex justify-end">
+          <button
+            onClick={onClearEmptyGroups}
+            className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-gray-600 ring-1 ring-gray-300 hover:bg-gray-50 hover:text-red-500"
+          >
+            <Eraser size={13} />
+            清除空白組別（{emptyCount}）
+          </button>
+        </div>
+      )}
 
       {selectedCount > 0 && (
         <div className="sticky bottom-4 z-40 mt-4 flex justify-center">

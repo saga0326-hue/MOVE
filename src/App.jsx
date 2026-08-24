@@ -7,6 +7,7 @@ import {
   parseStorePoolFile,
   mergeStorePool,
   createEmptyRow,
+  rowHasContent,
 } from './utils/scheduleParser';
 import {
   getScheduleDepartments,
@@ -100,6 +101,35 @@ function App() {
       ...prev,
       byDate: { ...prev.byDate, [selectedDate]: nextRows },
     }));
+  };
+
+  /** 刪除指定的空白組別（僅限整組都沒有門市也沒有人員者） */
+  const handleDeleteGroup = (gid) => {
+    const rows = scheduleData.byDate[selectedDate] ?? [];
+    const target = rows.filter((r) => r._gid === gid);
+    if (target.length === 0) return;
+    if (target.some((r) => rowHasContent(r))) {
+      setError('該組仍有門市或人員資料，無法刪除。');
+      return;
+    }
+    handleChangeRows(rows.filter((r) => r._gid !== gid));
+    setError('');
+  };
+
+  /** 一次清除當日所有空白組別 */
+  const handleClearEmptyGroups = () => {
+    const rows = scheduleData.byDate[selectedDate] ?? [];
+    const byGid = new Map();
+    for (const r of rows) {
+      if (!byGid.has(r._gid)) byGid.set(r._gid, []);
+      byGid.get(r._gid).push(r);
+    }
+    const emptyGids = new Set(
+      [...byGid.entries()].filter(([, rs]) => rs.every((r) => !rowHasContent(r))).map(([g]) => g)
+    );
+    if (emptyGids.size === 0) return;
+    handleChangeRows(rows.filter((r) => !emptyGids.has(r._gid)));
+    setError(`已清除 ${emptyGids.size} 個空白組別。`);
   };
 
   /** 在當日最後新增一組（含空白的上午與下午槽位） */
@@ -367,6 +397,8 @@ function App() {
                   onChangeRows={handleChangeRows}
                   onMoveToPool={handleMoveToPool}
                   onAddGroup={handleAddGroup}
+                  onDeleteGroup={handleDeleteGroup}
+                  onClearEmptyGroups={handleClearEmptyGroups}
                   codeMap={codeMap}
                   inspectionKeys={inspectionKeys}
                   storeMaster={storeMaster}

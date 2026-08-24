@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { Copy } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Copy, ChevronDown, ChevronRight } from 'lucide-react';
 import { findDuplicateStores } from '../utils/duplicates';
 import { formatDateLabel } from '../utils/date';
 
@@ -12,17 +12,24 @@ import { formatDateLabel } from '../utils/date';
  * 跨日期偵測，不受目前檢視的日期影響。
  */
 export default function DuplicateStoreBanner({ scheduleData, onJump }) {
+  const [open, setOpen] = useState(true);
   const duplicates = useMemo(() => findDuplicateStores(scheduleData), [scheduleData]);
 
   if (duplicates.length === 0) return null;
 
   return (
     <div className="mb-4 rounded-lg border border-orange-300 bg-orange-50 px-3 py-2.5">
-      <div className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-orange-800">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-1.5 text-left text-sm font-semibold text-orange-800"
+      >
+        {open ? <ChevronDown size={14} className="shrink-0" /> : <ChevronRight size={14} className="shrink-0" />}
         <Copy size={15} className="shrink-0" />
         同月重複盤點（{duplicates.length} 間）
-      </div>
-      <p className="mb-1.5 text-[11px] text-orange-700">
+      </button>
+      {open && (
+      <>
+      <p className="mb-1.5 mt-1.5 text-[11px] text-orange-700">
         閉轉解續約等異動可能需要再盤一次，請確認是否為預期安排。
       </p>
       <ul className="space-y-1 text-sm text-orange-900">
@@ -46,6 +53,8 @@ export default function DuplicateStoreBanner({ scheduleData, onJump }) {
           </li>
         ))}
       </ul>
+      </>
+      )}
     </div>
   );
 }

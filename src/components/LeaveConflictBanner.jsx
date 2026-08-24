@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 import { countAssignmentsByCode, getLeaveOnDate } from '../utils/staffUtils';
 
 /**
@@ -13,6 +13,7 @@ export default function LeaveConflictBanner({
   date,
   departments,
 }) {
+  const [open, setOpen] = useState(true);
   const conflicts = useMemo(() => {
     if (!roster?.length || !leaveRecords?.length) return [];
 
@@ -45,11 +46,16 @@ export default function LeaveConflictBanner({
 
   return (
     <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5">
-      <div className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-amber-800">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-1.5 text-left text-sm font-semibold text-amber-800"
+      >
+        {open ? <ChevronDown size={14} className="shrink-0" /> : <ChevronRight size={14} className="shrink-0" />}
         <AlertTriangle size={15} className="shrink-0" />
         休假衝突（{conflicts.length} 人）
-      </div>
-      <ul className="space-y-1 text-sm text-amber-900">
+      </button>
+      {open && (
+      <ul className="mt-1.5 space-y-1 text-sm text-amber-900">
         {conflicts.map((c) => (
           <li key={c.key} className="flex flex-wrap items-baseline gap-x-1.5">
             <span className="font-medium">
@@ -67,6 +73,7 @@ export default function LeaveConflictBanner({
           </li>
         ))}
       </ul>
+      )}
     </div>
   );
 }

@@ -320,28 +320,32 @@ function App() {
           </div>
         ) : (
           <DragDropContext onDragEnd={handleDragEnd}>
-            <div className="mb-4">
-              <DateSwitcher
-                dates={scheduleData.dates}
-                selected={selectedDate}
-                onSelect={setSelectedDate}
+            {/* 日期、警告與出勤列固定於畫面上方，捲動班表時仍可對照；
+                內容過長時此區自行捲動，避免佔滿整個畫面 */}
+            <div className="sticky top-0 z-30 -mx-4 mb-4 max-h-[45vh] overflow-y-auto bg-gray-100 px-4 pt-1 pb-2 shadow-[0_6px_10px_-8px_rgba(0,0,0,0.35)]">
+              <div className="mb-3">
+                <DateSwitcher
+                  dates={scheduleData.dates}
+                  selected={selectedDate}
+                  onSelect={setSelectedDate}
+                />
+              </div>
+              <DuplicateStoreBanner scheduleData={scheduleData} onJump={setSelectedDate} />
+              <LeaveConflictBanner
+                rows={dayRows}
+                roster={roster}
+                leaveRecords={leaveRecords}
+                date={selectedDate}
+                departments={departments}
+              />
+              <DailyStaffRow
+                rows={dayRows}
+                roster={roster}
+                leaveRecords={leaveRecords}
+                date={selectedDate}
+                departments={departments}
               />
             </div>
-            <DuplicateStoreBanner scheduleData={scheduleData} onJump={setSelectedDate} />
-            <LeaveConflictBanner
-              rows={dayRows}
-              roster={roster}
-              leaveRecords={leaveRecords}
-              date={selectedDate}
-              departments={departments}
-            />
-            <DailyStaffRow
-              rows={dayRows}
-              roster={roster}
-              leaveRecords={leaveRecords}
-              date={selectedDate}
-              departments={departments}
-            />
             <div className="flex items-start gap-4">
               <div className="min-w-0 flex-1">
                 <ScheduleBoard

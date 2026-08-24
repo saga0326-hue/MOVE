@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { Store, User, Pencil, GripVertical, PackagePlus, XCircle, Plus, Trash2, Eraser } from 'lucide-react';
 import { encodeSlotId, updateRow } from '../utils/dnd';
@@ -19,6 +19,7 @@ export default function ScheduleBoard({
   onNotify,
 }) {
   const [editingRid, setEditingRid] = useState(null);
+  const [inlineRid, setInlineRid] = useState(null); // 雙擊直接編輯人員的列
   const [selected, setSelected] = useState(() => new Set());
   const groups = useMemo(() => buildDayGroups(rows), [rows]);
   // 整組都沒有門市也沒有人員者可刪除
@@ -41,6 +42,25 @@ export default function ScheduleBoard({
     if (rids.length === 0) return;
     onMoveToPool?.(rids);
     clearSelection();
+  };
+
+  /** 雙擊人員後就地儲存，同步人力與盤點1～8 */
+  const saveInlineStaff = (rid, value) => {
+    const target = rows.find((r) => r._rid === rid);
+    setInlineRid(null);
+    if (!target || value === (target.預定盤點者 ?? '')) return;
+
+    const { row, unknownCodes } = syncStaffDerivedFields(
+      { ...target, 預定盤點者: value },
+      codeMap ?? new Map(),
+      inspectionKeys
+    );
+    onChangeRows(updateRow(rows, rid, row));
+    onNotify?.(
+      unknownCodes.length
+        ? `已更新，但代號「${unknownCodes.join('、')}」在班表中查無工號，對應的盤點欄位留空。`
+        : ''
+    );
   };
 
   const saveEdit = (form) => {
@@ -113,6 +133,11 @@ export default function ScheduleBoard({
                   checked={selected.has(row._rid)}
                   onToggle={() => toggleSelect(row._rid)}
                   onEdit={() => setEditingRid(row._rid)}
+                  codeMap={codeMap}
+                  inlineEditing={inlineRid === row._rid}
+                  onStartInline={() => setInlineRid(row._rid)}
+                  onSaveInline={(v) => saveInlineStaff(row._rid, v)}
+                  onCancelInline={() => setInlineRid(null)}
                 />
               ))}
             </div>
@@ -178,7 +203,17 @@ export default function ScheduleBoard({
   );
 }
 
-function SlotCard({ row, checked, onToggle, onEdit }) {
+function SlotCard({
+  row,
+  checked,
+  onToggle,
+  onEdit,
+  codeMap,
+  inlineEditing,
+  onStartInline,
+  onSaveInline,
+  onCancelInline,
+}) {
   const isMorning = String(row.午別) === '1';
   const hasStore = !!row.店號;
   // 人力即時由預定盤點者推導，與匯出規則一致，避免顯示到殘留的舊值
@@ -243,18 +278,89 @@ function SlotCard({ row, checked, onToggle, onEdit }) {
       <DroppableCard id={encodeSlotId('staff', row._rid)} type="staff">
         <div className="flex items-start gap-1.5">
           <User size={14} className="mt-0.5 shrink-0 text-teal-400" />
-          <div className="min-w-0 text-left">
-            <div className="break-words text-sm font-medium text-gray-800">
-              {row.預定盤點者 || <span className="text-gray-300">未指派</span>}
-              {headcount > 0 && (
-                <span className="ml-1 text-[11px] font-normal text-gray-400">
-                  {headcount} 人
-                </span>
-              )}
-            </div>
+          <div className="min-w-0 flex-1 text-left">
+            {inlineEditing ? (
+              <InlineStaffInput
+                initial={row.預定盤點者 ?? ''}
+                codeMap={codeMap}
+                onSave={onSaveInline}
+                onCancel={onCancelInline}
+              />
+            ) : (
+              <div
+                onDoubleClick={onStartInline}
+                title="雙擊可直接修改人員"
+                className="cursor-text break-words text-sm font-medium text-gray-800"
+              >
+                {row.預定盤點者 || <span className="text-gray-300">未指派</span>}
+                {headcount > 0 && (
+                  <span className="ml-1 text-[11px] font-normal text-gray-400">
+                    {headcount} 人
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </DroppableCard>
+    </div>
+  );
+}
+
+/**
+ * 人員的行內編輯輸入框
+ *
+ * 此輸入框位於可拖曳的卡片內，需攔截 mousedown／click，
+ * 否則拖曳套件會把點擊當成拖曳起手而無法輸入。
+ */
+function InlineStaffInput({ initial, codeMap, onSave, onCancel }) {
+  const [value, setValue] = useState(initial);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    ref.current?.focus();
+    ref.current?.select();
+  }, []);
+
+  const codes = Array.from(String(value).trim()).filter((c) => c.trim());
+  const unknown = codes.filter((c) => codeMap && !codeMap.get(c));
+
+  const stop = (e) => e.stopPropagation();
+
+  return (
+    <div onMouseDown={stop} onClick={stop} onDoubleClick={stop}>
+      <input
+        ref={ref}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={() => onSave(value.trim())}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            onSave(value.trim());
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            onCancel();
+          }
+        }}
+        className="w-full rounded border border-purple-400 px-1.5 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-purple-400"
+        placeholder="輸入人員代號，例如 吳羽瑄"
+      />
+      <div className="mt-0.5 flex flex-wrap items-center gap-1 text-[10px]">
+        <span className="text-gray-400">{codes.length} 人</span>
+        {codes.map((c, i) => (
+          <span
+            key={`${c}-${i}`}
+            className={`rounded px-1 py-0.5 font-medium ${
+              codeMap?.get(c) ? 'bg-teal-50 text-teal-700' : 'bg-red-50 text-red-600'
+            }`}
+          >
+            {c}
+          </span>
+        ))}
+        {unknown.length > 0 && <span className="text-red-500">查無工號</span>}
+      </div>
+      <p className="mt-0.5 text-[10px] text-gray-400">Enter 儲存・Esc 取消</p>
     </div>
   );
 }

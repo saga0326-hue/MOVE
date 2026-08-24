@@ -11,6 +11,7 @@ import {
   PackageOpen,
   CalendarClock,
   AlertTriangle,
+  Undo2,
 } from 'lucide-react';
 import { POOL_ID } from '../utils/dnd';
 import { formatDateLabel } from '../utils/date';
@@ -141,7 +142,9 @@ export default function StorePoolPanel({
                         title={
                           store._date
                             ? `僅限 ${formatDateLabel(store._date)} 使用`
-                            : '不限日期'
+                            : store._from
+                              ? `原本排定於 ${formatDateLabel(store._from)}，可放回任何日期`
+                              : '不限日期'
                         }
                         className={`group flex items-center gap-1 rounded-md border px-1.5 py-1.5 ${
                           otherDate
@@ -161,6 +164,15 @@ export default function StorePoolPanel({
                             {store.課別 && `　課別 ${store.課別}`}
                           </div>
                           <div className="mt-0.5 flex flex-wrap gap-1">
+                            {store._from && !store._date && (
+                              <span
+                                className="inline-flex items-center gap-0.5 rounded bg-gray-100 px-1 py-0.5 text-[10px] font-medium text-gray-500"
+                                title={`原本排定於 ${formatDateLabel(store._from)}，可放回任何日期`}
+                              >
+                                <Undo2 size={9} />
+                                原 {formatDateLabel(store._from)}
+                              </span>
+                            )}
                             {store._date && (
                               <span
                                 className={`inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-medium ${

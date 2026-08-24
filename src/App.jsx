@@ -98,13 +98,15 @@ function App() {
     for (const rid of rids) {
       const storeData = getRowStoreFields(nextRows, rid, scheduleData.storeKeys);
       if (!storeData['店號']) continue;
-      moved.push({ _id: crypto.randomUUID(), ...storeData, _date: selectedDate });
+      // 只記錄原本的日期作為參考（_from），不設成限制（_date），
+      // 因為從班表移出的門市通常就是要改排到別天
+      moved.push({ _id: crypto.randomUUID(), ...storeData, _from: selectedDate });
       nextRows = setRowStoreFields(nextRows, rid, {}, scheduleData.storeKeys);
     }
     if (moved.length === 0) return;
     handleChangeRows(nextRows);
     setStorePool((prev) => [...prev, ...moved]);
-    setError(`已將 ${moved.length} 間門市移到暫存區（指定日期為 ${formatDateLabel(selectedDate)}）。`);
+    setError(`已將 ${moved.length} 間門市移到暫存區（原排定於 ${formatDateLabel(selectedDate)}）。`);
   };
 
   const handleAddStore = (form) => {
@@ -151,7 +153,7 @@ function App() {
         );
         return;
       }
-      // 一間店一個月只應盤點一次：若已排在別處先提醒（仍允許放置，方便調整過程）
+      // 同月若已排定過先提醒。閉轉解續約等異動可能需要再盤一次，故僅提示不阻擋
       const already = (occurrenceIndex.get(store.店號) ?? []).filter(
         (o) => !(o.date === selectedDate && o.rid === dst.rid)
       );
@@ -159,7 +161,7 @@ function App() {
         const where = already
           .map((o) => `${formatDateLabel(o.date)} ${String(o.shift) === '1' ? '上午' : '下午'} ${o.店名 || ''}`.trim())
           .join('、');
-        setError(`⚠ 門市重複：「${store.店號} ${store.店名}」已排定於 ${where}。`);
+        setError(`提醒：「${store.店號} ${store.店名}」本月已排定於 ${where}，請確認是否為預期安排。`);
       } else {
         setError('');
       }
@@ -169,7 +171,11 @@ function App() {
         const next = prev.filter((_, i) => i !== result.source.index);
         // 插回原本拖走的位置，避免整排卡片跳動
         if (displaced['店號']) {
-          next.splice(result.source.index, 0, { _id: crypto.randomUUID(), ...displaced });
+          next.splice(result.source.index, 0, {
+            _id: crypto.randomUUID(),
+            ...displaced,
+            _from: selectedDate,
+          });
         }
         return next;
       });
@@ -181,7 +187,10 @@ function App() {
       const storeData = getRowStoreFields(rows, src.rid, scheduleData.storeKeys);
       if (!storeData['店號']) return;
       handleChangeRows(setRowStoreFields(rows, src.rid, {}, scheduleData.storeKeys));
-      setStorePool((prev) => [...prev, { _id: crypto.randomUUID(), ...storeData }]);
+      setStorePool((prev) => [
+        ...prev,
+        { _id: crypto.randomUUID(), ...storeData, _from: selectedDate },
+      ]);
       return;
     }
 

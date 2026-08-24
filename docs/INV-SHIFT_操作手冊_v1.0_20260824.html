@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>盤點班表調移系統 操作手冊 v1.0</title>
+<style>
+  :root{
+    --primary:#2563eb; --primary-dark:#1d4ed8; --primary-light:#eff6ff;
+    --text:#1f2937; --muted:#6b7280; --border:#e5e7eb; --bg:#f9fafb;
+    --info:#2563eb; --info-bg:#eff6ff; --warn:#ea580c; --warn-bg:#fff7ed;
+    --tip:#059669; --tip-bg:#ecfdf5;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:"Noto Sans TC","Microsoft JhengHei","微軟正黑體",-apple-system,sans-serif;
+    color:var(--text); background:var(--bg); line-height:1.75; font-size:15px;
+  }
+  header.site{
+    background:linear-gradient(135deg,var(--primary),var(--primary-dark));
+    color:#fff; padding:28px 32px;
+  }
+  header.site .company{font-size:13px;opacity:.85;letter-spacing:1px}
+  header.site h1{font-size:26px;font-weight:700;margin:6px 0 4px}
+  header.site .meta{font-size:13px;opacity:.9}
+
+  .layout{display:flex;align-items:flex-start;max-width:1400px;margin:0 auto}
+
+  nav.toc{
+    position:sticky; top:0; width:260px; flex-shrink:0; height:100vh;
+    overflow-y:auto; background:#fff; border-right:1px solid var(--border); padding:20px 0;
+  }
+  nav.toc h2{font-size:12px;color:var(--muted);letter-spacing:1px;padding:0 20px 10px}
+  nav.toc a{
+    display:block; padding:7px 20px; color:var(--text); text-decoration:none;
+    font-size:13.5px; border-left:3px solid transparent;
+  }
+  nav.toc a:hover{background:var(--primary-light);color:var(--primary)}
+  nav.toc a.active{background:var(--primary-light);color:var(--primary);border-left-color:var(--primary);font-weight:600}
+  nav.toc a.sub{padding-left:36px;font-size:12.5px;color:var(--muted)}
+  nav.toc a.sub.active{color:var(--primary)}
+
+  main{flex:1;min-width:0;padding:32px 40px 80px;background:#fff}
+  section{scroll-margin-top:20px;margin-bottom:44px}
+  h2.chapter{
+    font-size:21px;font-weight:700;color:var(--primary);
+    padding-bottom:10px;border-bottom:2px solid var(--primary);margin-bottom:18px;
+  }
+  h3{font-size:16.5px;font-weight:600;margin:26px 0 10px;color:#111827}
+  h4{font-size:14.5px;font-weight:600;margin:18px 0 8px;color:#374151}
+  p{margin-bottom:12px}
+  ul,ol{margin:0 0 14px 22px}
+  li{margin-bottom:6px}
+
+  table{width:100%;border-collapse:collapse;margin:14px 0 18px;font-size:14px}
+  th{background:var(--primary);color:#fff;text-align:left;padding:9px 12px;font-weight:600}
+  td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+  tr:nth-child(even) td{background:#fafafa}
+  td code,p code,li code{
+    background:#f3f4f6;padding:2px 6px;border-radius:4px;
+    font-family:Consolas,"Courier New",monospace;font-size:13px;color:#b91c1c;
+  }
+
+  .callout{border-left:4px solid;border-radius:6px;padding:13px 16px;margin:14px 0;font-size:14px}
+  .callout .t{font-weight:700;margin-bottom:5px;display:block}
+  .callout.info{border-color:var(--info);background:var(--info-bg)}
+  .callout.info .t{color:var(--info)}
+  .callout.warn{border-color:var(--warn);background:var(--warn-bg)}
+  .callout.warn .t{color:var(--warn)}
+  .callout.tip{border-color:var(--tip);background:var(--tip-bg)}
+  .callout.tip .t{color:var(--tip)}
+
+  .steps{counter-reset:s;list-style:none;margin-left:0}
+  .steps li{counter-increment:s;position:relative;padding-left:36px;margin-bottom:11px}
+  .steps li::before{
+    content:counter(s);position:absolute;left:0;top:2px;width:24px;height:24px;
+    background:var(--primary);color:#fff;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:700;
+  }
+
+  .screen{
+    background:#1f2937;color:#e5e7eb;border-radius:8px;padding:14px 18px;margin:14px 0;
+    font-family:Consolas,"Courier New",monospace;font-size:13px;line-height:1.9;white-space:pre-wrap;
+  }
+  .chip{display:inline-block;padding:2px 9px;border-radius:11px;font-size:12.5px;font-weight:600;white-space:nowrap}
+  .c-none{background:#fff;border:1px solid #d1d5db;color:#6b7280}
+  .c-blue{background:#e0f2fe;color:#0369a1}
+  .c-yellow{background:#fef3c7;color:#b45309}
+  .c-green{background:#d1fae5;color:#047857}
+  .c-red{background:#fee2e2;color:#b91c1c}
+  .c-purple{background:#ede9fe;color:#6d28d9}
+  .c-orange{background:#ffedd5;color:#c2410c}
+  .c-gray{background:#f3f4f6;color:#4b5563}
+
+  footer.site{
+    background:#1f2937;color:#9ca3af;padding:22px 32px;font-size:12.5px;text-align:center;
+  }
+  footer.site strong{color:#e5e7eb}
+
+  @media (max-width:900px){
+    .layout{flex-direction:column}
+    nav.toc{position:static;width:100%;height:auto;border-right:none;border-bottom:1px solid var(--border)}
+    main{padding:22px 18px 60px}
+    table{font-size:13px}
+    th,td{padding:7px 9px}
+  }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="company">日翊文化行銷股份有限公司　|　盤點中心一部　北一課</div>
+  <h1>盤點班表調移系統　操作手冊</h1>
+  <div class="meta">版本 v1.0　|　建立日期：2026/08/24　|　系統代號：INV-SHIFT</div>
+</header>
+
+<div class="layout">
+<nav class="toc">
+  <h2>目錄</h2>
+  <a href="#c1">1. 系統基本資訊</a>
+  <a href="#c2">2. 系統規格</a>
+  <a href="#c3">3. 帳號與登入</a>
+  <a href="#c4">4. 功能操作說明</a>
+  <a href="#s41" class="sub">4.1 匯入班表</a>
+  <a href="#s42" class="sub">4.2 畫面配置</a>
+  <a href="#s43" class="sub">4.3 拖曳調移</a>
+  <a href="#s44" class="sub">4.4 雙擊快速修改</a>
+  <a href="#s45" class="sub">4.5 詳細編輯</a>
+  <a href="#s46" class="sub">4.6 店暫存區</a>
+  <a href="#s47" class="sub">4.7 批次移動門市</a>
+  <a href="#s48" class="sub">4.8 新增與刪除組別</a>
+  <a href="#s49" class="sub">4.9 當日出勤檢視</a>
+  <a href="#s410" class="sub">4.10 自動警告</a>
+  <a href="#s411" class="sub">4.11 匯出 Excel</a>
+  <a href="#c5">5. 角色與權限</a>
+  <a href="#c6">6. 常見問題 FAQ</a>
+  <a href="#c7">7. 版本紀錄</a>
+  <a href="#c8">8. 資料保護說明</a>
+</nav>
+
+<main>
+
+<!-- 1 -->
+<section id="c1">
+  <h2 class="chapter">1. 系統基本資訊</h2>
+  <table>
+    <tr><th style="width:170px">項目</th><th>內容</th></tr>
+    <tr><td>系統名稱</td><td>盤點班表調移系統</td></tr>
+    <tr><td>系統代號</td><td>INV-SHIFT</td></tr>
+    <tr><td>系統用途</td><td>將盤點班表由 Excel 剪貼作業轉為可視化拖曳調整，並自動偵測排班異常</td></tr>
+    <tr><td>適用對象</td><td>盤點課排班負責人員</td></tr>
+    <tr><td>網路存取方式</td><td><strong>單檔本機使用</strong>　不經網路、不需 VPN，取得 HTML 檔後以瀏覽器開啟即可</td></tr>
+    <tr><td>上線日期</td><td>尚未正式上線（測試中）</td></tr>
+    <tr><td>系統網址（正式）</td><td>不適用，目前為單一 HTML 檔案發送</td></tr>
+    <tr><td>系統網址（測試）</td><td>本機開發伺服器 <code>http://localhost:5173</code></td></tr>
+    <tr><td>開發工具</td><td>Claude Code（AI 輔助開發）</td></tr>
+    <tr><td>維護單位</td><td>盤點中心一部　北一課</td></tr>
+    <tr><td>問題回報窗口</td><td>蔡明達／分機：待補充／Email：待補充</td></tr>
+  </table>
+
+  <h3>系統簡介</h3>
+  <p>每月排定盤點班表時，需依門市狀況調整人員與門市的配對。原作業方式是直接在 Excel 中剪貼儲存格，一次調動往往牽涉多個欄位，容易錯位，也難以察覺「同一人被排太多間」「已排休假卻仍被排班」「同一間店重複盤點」等問題。</p>
+  <p>本系統將班表轉為卡片式介面，門市與人員可直接拖曳互換，系統並自動比對資料提出提醒。調整完成後匯出的 Excel 與原始檔案格式完全一致，可直接沿用既有流程。</p>
+
+  <div class="callout tip">
+    <span class="t">不需安裝任何軟體</span>
+    系統打包為單一 HTML 檔案，所有程式碼已內嵌其中。取得檔案後點兩下即可用瀏覽器開啟，不需要安裝、不需要帳號、不需要連網。
+  </div>
+</section>
+
+<!-- 2 -->
+<section id="c2">
+  <h2 class="chapter">2. 系統規格</h2>
+
+  <h3>2.1 技術架構</h3>
+  <table>
+    <tr><th style="width:110px">層級</th><th style="width:220px">技術</th><th>說明</th></tr>
+    <tr><td>前端</td><td>React 19 + Vite 8 + Tailwind CSS 4</td><td>所有運算皆於瀏覽器完成</td></tr>
+    <tr><td>拖曳</td><td>@hello-pangea/dnd 18</td><td>門市與人員卡片的拖曳互換</td></tr>
+    <tr><td>Excel 處理</td><td>SheetJS (xlsx)</td><td>匯入解析與匯出還原</td></tr>
+    <tr><td>後端</td><td>無</td><td>另有兩類唯讀查詢 API 待串接，未串接亦可運作</td></tr>
+    <tr><td>資料庫</td><td>無</td><td>系統不寫入任何資料</td></tr>
+    <tr><td>部署平台</td><td>單一 HTML 檔案</td><td>亦可置於任何靜態網站主機</td></tr>
+    <tr><td>版控</td><td>Git（本機）</td><td>交接後可置於公司 GitHub</td></tr>
+    <tr><td>身份驗證</td><td>無</td><td>單機工具，不含登入機制</td></tr>
+  </table>
+
+  <h3>2.2 系統架構說明</h3>
+  <div class="screen">[使用者瀏覽器]
+      │
+      ├── 匯入：盤點行事曆勤務報表 (.xlsx)
+      ├── 匯入：店庫異動 (.xlsx，選用)
+      │
+      ├── 記憶體中處理（不落地、不上傳）
+      │      ├─ 解析欄位與分組
+      │      ├─ 推導「人員代號 → 工號」對照
+      │      ├─ 推導「店號 → 門市資料」主檔
+      │      └─ 比對排班次數、休假、重複盤點
+      │
+      ├── 選用：向後端查詢人員通訊錄／休假／店鋪檔（唯讀）
+      │
+      └── 匯出：與原檔格式一致的 .xlsx</div>
+
+  <h3>2.3 主要功能模組</h3>
+  <table>
+    <tr><th style="width:160px">模組名稱</th><th>功能描述</th><th style="width:100px">狀態</th></tr>
+    <tr><td>班表匯入</td><td>解析盤點行事曆勤務報表，自動偵測標題列與欄位；亦相容舊版班表匯入檔</td><td>✅ 上線</td></tr>
+    <tr><td>拖曳調移</td><td>門市↔門市、人員↔人員互換，以及與店暫存區的雙向搬移</td><td>✅ 上線</td></tr>
+    <tr><td>快速編輯</td><td>雙擊門市或人員即可就地修改，店號與店名雙向連動</td><td>✅ 上線</td></tr>
+    <tr><td>店暫存區</td><td>暫放待調整的門市，可手動新增或由 Excel 匯入</td><td>✅ 上線</td></tr>
+    <tr><td>組別管理</td><td>補齊缺少的午別、新增與刪除空白組別</td><td>✅ 上線</td></tr>
+    <tr><td>當日出勤檢視</td><td>以顏色標示每位人員當日的排班次數與休假狀態</td><td>✅ 上線</td></tr>
+    <tr><td>自動警告</td><td>休假衝突與同月重複盤點的提示</td><td>✅ 上線</td></tr>
+    <tr><td>班表匯出</td><td>還原成與匯入完全一致的格式</td><td>✅ 上線</td></tr>
+    <tr><td>人員資料介接</td><td>通訊錄與休假資料改由後端 API 提供</td><td>🚧 待 IT 串接</td></tr>
+    <tr><td>店鋪檔介接</td><td>補齊新開店、他月閉轉解等不在班表中的門市</td><td>🚧 待 IT 串接</td></tr>
+  </table>
+
+  <h3>2.4 資料流說明</h3>
+  <ul>
+    <li><strong>資料來源</strong>：使用者本機的 Excel 檔案（盤點行事曆勤務報表、店庫異動）</li>
+    <li><strong>處理位置</strong>：全部在瀏覽器記憶體中完成，不上傳至任何伺服器</li>
+    <li><strong>資料去向</strong>：使用者點選「匯出 Excel」下載至本機，系統不保留任何資料</li>
+    <li><strong>資料存續</strong>：重新整理頁面或關閉瀏覽器後，所有資料即清空</li>
+  </ul>
+
+  <h3>2.5 整合外部系統</h3>
+  <table>
+    <tr><th>外部系統</th><th>整合方式</th><th>同步頻率</th><th>狀態</th></tr>
+    <tr><td>人員通訊錄</td><td><code>GET /api/staff/roster</code></td><td>匯入班表時自動查詢</td><td>待串接</td></tr>
+    <tr><td>人員休假</td><td><code>GET /api/staff/leave</code></td><td>匯入班表時自動查詢</td><td>待串接</td></tr>
+    <tr><td>店鋪檔</td><td><code>GET /api/stores</code></td><td>匯入班表時自動查詢</td><td>待串接</td></tr>
+  </table>
+  <div class="callout info">
+    <span class="t">API 未串接也能正常使用</span>
+    未串接時畫面上方會顯示「人員資料 API 尚未連線」，此時班表匯入、拖曳調移、編輯、匯出、店暫存區與重複盤點警告皆正常運作，僅「顯示姓名職稱」「列出今日未排班人員」「休假標示與衝突警告」需待串接後生效。
+  </div>
+</section>
+
+<!-- 3 -->
+<section id="c3">
+  <h2 class="chapter">3. 帳號與登入</h2>
+  <div class="callout info">
+    <span class="t">本系統不需要帳號，也沒有登入畫面</span>
+    這是一套單機工具，取得檔案後直接開啟即可使用。因此不涉及帳號申請、密碼重設或帳號鎖定等程序。
+  </div>
+
+  <h3>3.1 開啟方式</h3>
+  <ol class="steps">
+    <li>取得檔案 <code>盤點班表調移系統.html</code>（由維護窗口提供）</li>
+    <li>將檔案存放於自己電腦的任一資料夾（建議放在桌面或固定的工作資料夾）</li>
+    <li>在檔案上點兩下，系統會以預設瀏覽器開啟</li>
+    <li>看到「尚未匯入班表」的畫面即代表開啟成功</li>
+  </ol>
+
+  <div class="callout warn">
+    <span class="t">建議使用 Chrome 或 Edge</span>
+    請勿使用 Internet Explorer。若點兩下後開啟的是其他程式，請在檔案上按右鍵 →「開啟檔案」→ 選擇 Chrome 或 Edge。
+  </div>
+
+  <h3>3.2 取得最新版本</h3>
+  <p>系統更新後會發送新的 HTML 檔案。新舊版本只要覆蓋原檔即可，不需要移轉任何設定或資料。可由畫面標題與檔名確認版本。</p>
+</section>
+
+<!-- 4 -->
+<section id="c4">
+  <h2 class="chapter">4. 功能操作說明</h2>
+  <p>本章依實際操作順序說明。建議首次使用者依序閱讀 4.1 至 4.11。</p>
+
+  <!-- 4.1 -->
+  <h3 id="s41">4.1 匯入班表</h3>
+  <p><strong>用途：</strong>將盤點行事曆勤務報表載入系統，開始進行調移作業。</p>
+
+  <h4>操作步驟</h4>
+  <ol class="steps">
+    <li>準備好報表檔案，檔名格式類似 <code>INV_7_5盤點行事曆_勤務行事曆報表_20260824145408.xlsx</code></li>
+    <li>使用下列任一方式匯入：
+      <ul>
+        <li>點擊左上角「<strong>匯入班表</strong>」按鈕，選擇檔案</li>
+        <li>直接把檔案<strong>拖曳到畫面中央的虛線框</strong>，框線變色並顯示「放開以匯入班表」時放開滑鼠</li>
+      </ul>
+    </li>
+    <li>匯入完成後，上方會出現日期列，下方顯示當日的組別卡片</li>
+  </ol>
+
+  <h4>系統會自動處理的事</h4>
+  <table>
+    <tr><th style="width:150px">項目</th><th>說明</th></tr>
+    <tr><td>標題列位置</td><td>報表前 6 列為標頭（盤點月份、部別、課別、店數），系統會自動找到第 7 列的欄位標題，不需事先刪除</td></tr>
+    <tr><td>欄位辨識</td><td>依關鍵字比對，即使報表新增欄位也不會遺失，匯出時原樣保留</td></tr>
+    <tr><td>午別轉換</td><td>報表中的「上／下」自動對應為上午／下午，匯出時還原</td></tr>
+    <tr><td>日期格式</td><td><code>2026/08/03</code> 於畫面顯示為「08/03 週一」，匯出時還原為原格式</td></tr>
+    <tr><td>組別劃分</td><td>依檔案原始順序，將相鄰且帶隊者相同的列合併為一組</td></tr>
+    <tr><td>補齊午別</td><td>報表只列出實際有安排的工作，若某組只有上午或只有下午，系統會補上空白槽位供調移使用</td></tr>
+  </table>
+
+  <div class="callout info">
+    <span class="t">關於「序」欄位</span>
+    報表中的「序」是整份檔案的流水號，與實際的分組順序無關（例如 08/03 的序是 7、11、8、14…）。系統一律<strong>依檔案原始的列順序</strong>顯示，不依序號排序，因為依序號排會把同組人員完全打散。匯出時序的數值保留原值不變動。
+  </div>
+
+  <div class="callout tip">
+    <span class="t">也支援舊版班表匯入檔</span>
+    若匯入的是舊版「班表匯入_北一08-xxxx.xlsx」（午別為 1／2、每日固定 30 列），系統會自動辨識並以對應方式處理，不需切換任何設定。
+  </div>
+
+  <!-- 4.2 -->
+  <h3 id="s42">4.2 畫面配置</h3>
+  <p>匯入後畫面分為三個區域，捲動時上方資訊與右側暫存區都會固定不動。</p>
+
+  <h4>上方固定區</h4>
+  <table>
+    <tr><th style="width:150px">區塊</th><th>說明</th></tr>
+    <tr><td>日期切換列</td><td>點選即切換至該日期。<span class="chip c-red">週日紅底</span>　<span class="chip c-green">週六綠底</span>　平日灰底，目前選取者為紫底</td></tr>
+    <tr><td>同月重複盤點</td><td>橘色橫幅，列出整份班表中被排定兩次以上的門市</td></tr>
+    <tr><td>休假衝突</td><td>琥珀色橫幅，列出當日有休假卻仍被排班的人員</td></tr>
+    <tr><td>當日出勤列</td><td>以顏色圓圈顯示每位人員當日的排班次數</td></tr>
+  </table>
+
+  <div class="callout tip">
+    <span class="t">警告橫幅可以收合</span>
+    若上方區塊佔用太多畫面，可點擊橫幅標題左側的箭頭收合，收合後仍保留標題與數量。上方區最高只佔畫面的 45%，內容過多時該區會自行捲動，不會蓋住班表。
+  </div>
+
+  <h4>中間：組別卡片區</h4>
+  <p>每組一張卡片，卡片內含該組當日負責的門市，依上午、下午排列。欄數會依螢幕寬度自動調整：</p>
+  <table>
+    <tr><th>螢幕寬度</th><th>顯示欄數</th><th>適用裝置</th></tr>
+    <tr><td>小於 640px</td><td>1 欄</td><td>手機</td></tr>
+    <tr><td>640px 以上</td><td>2 欄</td><td>平板</td></tr>
+    <tr><td>1024px 以上</td><td>3 欄</td><td>小筆電</td></tr>
+    <tr><td>1280px 以上</td><td>4 欄</td><td>一般筆電</td></tr>
+    <tr><td>1536px 以上</td><td>5 欄</td><td>大螢幕</td></tr>
+  </table>
+
+  <h4>每個槽位的兩張卡片</h4>
+  <div class="screen">┌─────────────────────────────┐
+│ ☐  上午                  ✎ │
+│ ────────────────────────── │
+│ 🏪 024110                   │  ← 門市卡片（可拖曳）
+│    龍京店                   │
+│    型態 FC　SE71            │
+│    四課勿動                 │  ← 備註（屬門市）
+│ ────────────────────────── │
+│ 👤 吳羽  2 人               │  ← 人員卡片（可拖曳）
+└─────────────────────────────┘</div>
+  <p>兩張卡片可各自獨立拖曳，互不干擾。</p>
+
+  <h4>右側：店暫存區</h4>
+  <p>暫放待調整的門市，會隨捲軸固定在畫面上，捲到下方組別時仍可拖曳。點右上角箭頭可收合。</p>
+
+  <!-- 4.3 -->
+  <h3 id="s43">4.3 拖曳調移</h3>
+  <p><strong>用途：</strong>本系統的核心功能，用滑鼠拖曳即可調換門市或人員。</p>
+
+  <table>
+    <tr><th style="width:170px">拖曳來源</th><th style="width:170px">拖到哪裡</th><th>結果</th></tr>
+    <tr><td>門市卡片</td><td>另一槽位的門市卡片</td><td>兩邊門市資訊互換，<strong>人員不動</strong></td></tr>
+    <tr><td>人員卡片</td><td>另一槽位的人員卡片</td><td>兩邊人員互換，<strong>門市不動</strong></td></tr>
+    <tr><td>店暫存區的店</td><td>槽位的門市卡片</td><td>指派該店。若原本已有門市，原門市會退回暫存區</td></tr>
+    <tr><td>槽位的門市卡片</td><td>店暫存區</td><td>門市退回暫存區，該槽位清空</td></tr>
+  </table>
+
+  <h4>操作方式</h4>
+  <ol class="steps">
+    <li>將滑鼠移到卡片上，游標左側會出現拖曳握把</li>
+    <li>按住滑鼠左鍵不放，拖動到目標位置</li>
+    <li>目標區域會變成紫色底，表示可以放開</li>
+    <li>放開滑鼠完成調換</li>
+  </ol>
+
+  <div class="callout tip">
+    <span class="t">覆蓋不會遺失資料</span>
+    從暫存區把店拖到已經有門市的槽位時，原本那間店<strong>不會消失</strong>，而是自動退回暫存區，並且插在你剛剛拖走那張卡片的位置，方便接續操作。
+  </div>
+
+  <div class="callout info">
+    <span class="t">哪些欄位會跟著移動</span>
+    <table style="margin-top:8px">
+      <tr><th style="width:100px">分類</th><th>欄位</th></tr>
+      <tr><td>門市</td><td>店號、店名、型態、前次盤點、<strong>備註</strong>、課別、課別代號、營業課別</td></tr>
+      <tr><td>人員</td><td>預定盤點者、<strong>人力</strong>、<strong>盤點1～8（工號）</strong></td></tr>
+      <tr><td>固定不動</td><td>序、午別、日期</td></tr>
+    </table>
+    備註記載的是門市的歸屬與限制（如「四課勿動」），因此隨門市移動；人力與盤點1～8 的工號對應人員，因此隨人員移動。
+  </div>
+
+  <!-- 4.4 -->
+  <h3 id="s44">4.4 雙擊快速修改</h3>
+  <p><strong>用途：</strong>不必開啟編輯視窗，直接在卡片上修改門市或人員。這是最常用的修改方式。</p>
+
+  <h4>修改人員</h4>
+  <ol class="steps">
+    <li>在人員文字上<strong>點兩下</strong></li>
+    <li>文字變成輸入框並自動全選，直接輸入新的人員代號即可（例如「孟達姵」）</li>
+    <li>輸入過程下方會即時顯示人數與各代號，查不到工號者會標紅</li>
+    <li>按 <code>Enter</code> 儲存，按 <code>Esc</code> 取消，點到別處也會儲存</li>
+  </ol>
+
+  <div class="screen">雙擊「吳羽」
+   ↓
+[吳羽________]
+2 人  吳  羽
+Enter 儲存・Esc 取消</div>
+
+  <div class="callout tip">
+    <span class="t">工號與人力會自動更新</span>
+    儲存後系統會依新的人員自動重算「人力」與「盤點1～8」的工號，不需手動維護。例如改成「孟達姵慈」後，人力自動變為 4 人，工號同步為 10207006／10305002／11404004／11505004。
+  </div>
+
+  <h4>修改門市</h4>
+  <ol class="steps">
+    <li>在門市文字上<strong>點兩下</strong></li>
+    <li>展開店號與店名兩個輸入框，兩者<strong>雙向連動</strong>：
+      <ul>
+        <li>輸入店號 → 自動帶出店名、型態、課別、課別代號、營業課別</li>
+        <li>輸入店名 → 自動帶出店號與其餘欄位（記不得店號時使用）</li>
+      </ul>
+    </li>
+    <li>兩欄都有下拉建議清單，打幾個字就會列出符合的門市可直接挑選</li>
+    <li>按 <code>Enter</code> 或點「儲存」完成，按 <code>Esc</code> 取消</li>
+  </ol>
+
+  <div class="callout warn">
+    <span class="t">輸入不存在的門市會標紅提示</span>
+    若輸入的店號或店名在系統中查不到，會顯示「查無此門市，連動欄位不會更新」，型態與營業課別維持原值不會被亂改。此時請自行確認欄位內容是否正確。
+  </div>
+
+  <div class="callout info">
+    <span class="t">留空即清除</span>
+    把店號與店名都清空後儲存，等於將該槽位的門市移除，人員仍會保留。
+  </div>
+
+  <!-- 4.5 -->
+  <h3 id="s45">4.5 詳細編輯</h3>
+  <p><strong>用途：</strong>修改課別、前次盤點、備註等較少變動的欄位時使用。</p>
+
+  <ol class="steps">
+    <li>點擊卡片右上角的<strong>鉛筆圖示</strong></li>
+    <li>於彈出視窗中修改需要的欄位</li>
+    <li>點「儲存」完成，點「取消」或右上角 ✕ 放棄修改</li>
+  </ol>
+
+  <h4>欄位說明</h4>
+  <table>
+    <tr><th style="width:150px">欄位</th><th>說明</th><th style="width:100px">是否連動</th></tr>
+    <tr><td>店號</td><td>輸入後自動帶入其餘門市欄位</td><td>連動來源</td></tr>
+    <tr><td>店名</td><td>輸入後可反查店號，附建議清單</td><td>連動來源</td></tr>
+    <tr><td>型態</td><td>FC／RC／轉／解 等</td><td>隨店號店名</td></tr>
+    <tr><td>課別</td><td>如「北一課」</td><td>隨店號店名</td></tr>
+    <tr><td>前次盤點</td><td>上次盤點日期</td><td>隨店號店名</td></tr>
+    <tr><td>備註</td><td>門市的註記，如「四課勿動」「北二勿動」</td><td>自行維護</td></tr>
+    <tr><td>課別代號</td><td>如 C001</td><td>唯讀，隨店號連動</td></tr>
+    <tr><td>營業課別</td><td>如 SE71</td><td>唯讀，隨店號連動</td></tr>
+    <tr><td>預定盤點者</td><td>人員代號串，下方即時顯示對應工號</td><td>連動工號與人力</td></tr>
+  </table>
+
+  <!-- 4.6 -->
+  <h3 id="s46">4.6 店暫存區</h3>
+  <p><strong>用途：</strong>暫放要調整位置的門市，可視為調移作業的暫存空間。</p>
+
+  <h4>新增店（手動）</h4>
+  <ol class="steps">
+    <li>點擊暫存區的「<strong>＋ 新增店</strong>」</li>
+    <li>輸入店號，或直接輸入店名（會自動帶出店號）</li>
+    <li>需要時可設定「指定日期」，設定後該店只能拖曳到那一天</li>
+    <li>點「加入暫存區」完成</li>
+  </ol>
+
+  <h4>匯入店庫異動（Excel）</h4>
+  <table>
+    <tr><th style="width:120px">欄位</th><th style="width:80px">必填</th><th>說明</th></tr>
+    <tr><td>店號</td><td>必填</td><td>合併時以此比對：既有的更新、新的新增</td></tr>
+    <tr><td>店名</td><td>選填</td><td></td></tr>
+    <tr><td>型態</td><td>選填</td><td></td></tr>
+    <tr><td>日期</td><td>選填</td><td><strong>填了就限定只能放這天</strong>，留空代表不限日期</td></tr>
+    <tr><td>課別</td><td>選填</td><td></td></tr>
+    <tr><td>其他欄位</td><td>選填</td><td>會原樣保留</td></tr>
+  </table>
+
+  <p>日期欄支援下列寫法，皆會自動轉換：</p>
+  <table>
+    <tr><th style="width:280px">寫法</th><th>結果</th></tr>
+    <tr><td><code>20260803</code></td><td>直接辨識</td></tr>
+    <tr><td><code>2026/08/03</code>　<code>2026-8-3</code>　<code>2026年8月3日</code></td><td>直接辨識</td></tr>
+    <tr><td><code>8/3</code>　<code>8-3</code>　<code>8月3日</code></td><td>對照班表日期自動補上年份</td></tr>
+    <tr><td>空白</td><td>不限日期</td></tr>
+  </table>
+
+  <div class="callout warn">
+    <span class="t">請先匯入班表，再匯入店庫異動</span>
+    「8/3」這類省略年份的寫法需要班表日期作為對照才能補上正確年份。若尚未匯入班表就先匯店庫異動，這類寫法會被視為「不限日期」。
+  </div>
+
+  <h4>卡片上的標示</h4>
+  <table>
+    <tr><th style="width:190px">標示</th><th>意義</th><th style="width:150px">是否限制</th></tr>
+    <tr><td><span class="chip c-purple">限 08/03 週一</span></td><td>來自「匯入店庫異動」或「新增店」時指定的日期</td><td><strong>是</strong>，拖到別天會被擋下</td></tr>
+    <tr><td><span class="chip c-gray">原 08/03 週一</span></td><td>從班表移出時記錄的原始日期</td><td>否，可放到任何日期</td></tr>
+    <tr><td><span class="chip c-orange">已排 08/21</span></td><td>該門市在班表中已排定過</td><td>否，僅提醒</td></tr>
+    <tr><td>虛線框＋半透明</td><td>指定日期不是目前檢視的日期</td><td>是</td></tr>
+  </table>
+
+  <!-- 4.7 -->
+  <h3 id="s47">4.7 批次移動門市</h3>
+  <p><strong>用途：</strong>一次把多間門市移到暫存區，適合大幅調整當日班表時使用。</p>
+
+  <ol class="steps">
+    <li>勾選各卡片左上角的<strong>核取方塊</strong>（沒有門市的槽位無法勾選）</li>
+    <li>畫面底部浮出操作列，顯示「已勾選 N 間門市」</li>
+    <li>點「<strong>移到暫存區</strong>」完成，或點「取消」放棄選取</li>
+  </ol>
+
+  <div class="screen">已勾選 3 間門市　[移到暫存區]　[取消]</div>
+
+  <div class="callout info">
+    <span class="t">人員會保留在原位</span>
+    批次移動只搬走門市，該槽位的人員仍留在原地。移到暫存區的門市會標記「原 MM/DD」作為參考，但<strong>不會限制</strong>只能放回那一天。
+  </div>
+
+  <!-- 4.8 -->
+  <h3 id="s48">4.8 新增與刪除組別</h3>
+  <p><strong>用途：</strong>當日組數不足、無處安置從其他日期調來的門市時，可新增組別。</p>
+
+  <h4>新增組別</h4>
+  <ol class="steps">
+    <li>捲動至組別卡片區最後，點擊虛線方塊「<strong>＋ 新增組別</strong>」</li>
+    <li>系統建立一組含空白上午與下午槽位的新組別</li>
+    <li>將門市拖入或雙擊填寫即可</li>
+  </ol>
+
+  <h4>刪除空白組別</h4>
+  <ul>
+    <li><strong>單組刪除</strong>：空白組別的標題右側會出現垃圾桶圖示，點擊即可刪除</li>
+    <li><strong>批次清除</strong>：空白組別達 2 個以上時，組別區下方會出現「清除空白組別（N）」，一次清光</li>
+  </ul>
+
+  <div class="callout tip">
+    <span class="t">不小心新增太多也不影響匯出</span>
+    空白槽位（沒有門市也沒有人員）<strong>不會寫入匯出的 Excel</strong>。實測新增 10 組空白後，匯出仍為原本的 397 筆，完全不受影響。刪除功能只是為了讓畫面整齊。
+  </div>
+
+  <div class="callout warn">
+    <span class="t">有資料的組別不會出現刪除鈕</span>
+    只有「門市與人員都空」的組別才可刪除。若某組已把門市移走但人員還在，不算空白組，不會被誤刪。
+  </div>
+
+  <!-- 4.9 -->
+  <h3 id="s49">4.9 當日出勤檢視</h3>
+  <p><strong>用途：</strong>一眼看出當日每位人員被排了幾間店，及早發現排班過重或漏排。</p>
+
+  <h4>顏色說明</h4>
+  <table>
+    <tr><th style="width:130px">顏色</th><th style="width:230px">條件</th><th>意義</th></tr>
+    <tr><td><span class="chip c-none">無色</span></td><td>0 次</td><td>今日未排班</td></tr>
+    <tr><td><span class="chip c-blue">淡藍</span></td><td>有休假且未被排班</td><td>正常休假</td></tr>
+    <tr><td><span class="chip c-yellow">黃色</span></td><td>1 次</td><td>今天帶 1 間店</td></tr>
+    <tr><td><span class="chip c-green">綠色</span></td><td>2 次</td><td>今天帶 2 間店（常態）</td></tr>
+    <tr><td><span class="chip c-red">紅色</span></td><td>3 次以上，或有休假卻被排班</td><td>需要留意</td></tr>
+  </table>
+
+  <div class="callout info">
+    <span class="t">紅色是「提醒」不是「錯誤」</span>
+    門市庫存較少時，一個人一天帶 3 間店是合理的安排。標紅只是讓你一眼看出誰今天帶得比較多，方便評估是否需要調整。
+  </div>
+
+  <h4>其他說明</h4>
+  <ul>
+    <li>將滑鼠移到圓圈上，會顯示完整資訊，例如：<code>劉育青（資深專員）・今日 2 次　休假中（特休）</code></li>
+    <li>統計時<strong>只計算店號有填的槽位</strong>，避免備註列的文字被誤算為人員</li>
+    <li>「預定盤點者」會逐字拆解，「于筱董」代表于、筱、董三個人，各計 1 次</li>
+    <li>班表中出現但人員名單查不到的代號（例如新進人員尚未建檔），仍會照常顯示並計次，外框改為虛線</li>
+  </ul>
+
+  <div class="callout warn">
+    <span class="t">部分功能需 API 串接後才完整</span>
+    「未排班（無色）」與「休假（淡藍）」需要人員通訊錄與休假資料才會出現。API 尚未串接前，出勤列只會顯示班表中實際出現過的人員代號。
+  </div>
+
+  <!-- 4.10 -->
+  <h3 id="s410">4.10 自動警告</h3>
+
+  <h4>同月重複盤點</h4>
+  <p>系統會掃描整份班表，找出被排定兩次以上的門市，以橘色橫幅列出：</p>
+  <div class="screen">同月重複盤點（2 間）
+閉轉解續約等異動可能需要再盤一次，請確認是否為預期安排。
+
+022620 新格致店　重複 2 次：[08/14 上午・家達瑄] [08/17 上午・絜筱于]
+026254 教育大學店　重複 2 次：[08/15 上午・廷珊] [09/01 上午・董皓]</div>
+  <ul>
+    <li>日期標籤<strong>可以點擊</strong>，直接跳到那一天查看</li>
+    <li>暫存區的卡片也會標示「已排 MM/DD」，拖曳之前就看得到</li>
+    <li>拖曳當下另會顯示提示訊息</li>
+  </ul>
+
+  <div class="callout info">
+    <span class="t">只警告，不阻擋</span>
+    閉店、轉手、解約、續約等異動，確實可能需要同月再盤一次（例如已於 8/14 盤過，後續發文 8/17 解約）。因此系統會讓你正常操作，橫幅則持續提醒你確認。
+  </div>
+
+  <h4>休假衝突</h4>
+  <p>當某人當日登記了休假、卻仍被排進班表，畫面上方會出現琥珀色橫幅：</p>
+  <div class="screen">⚠ 休假衝突（1 人）
+劉育青（青）［特休］被排入 上午 雙林店、下午 建錦店</div>
+  <p>此功能需要人員通訊錄與休假資料都取得後才會啟用。</p>
+
+  <!-- 4.11 -->
+  <h3 id="s411">4.11 匯出 Excel</h3>
+  <p><strong>用途：</strong>把調整後的班表存回 Excel，格式與原始檔案完全一致。</p>
+
+  <ol class="steps">
+    <li>點擊左上角「<strong>匯出 Excel</strong>」</li>
+    <li>瀏覽器下載檔案 <code>盤點班表.xlsx</code></li>
+    <li>可直接沿用既有流程使用該檔案</li>
+  </ol>
+
+  <h4>匯出規則</h4>
+  <table>
+    <tr><th style="width:160px">項目</th><th>處理方式</th></tr>
+    <tr><td>報表標頭</td><td>前 6 列（盤點月份、部別、課別、店數）原樣還原</td></tr>
+    <tr><td>欄位順序</td><td>完全比照匯入時的原始檔案</td></tr>
+    <tr><td>列的順序</td><td>依畫面上的順序，即匯入時的檔案順序</td></tr>
+    <tr><td>序</td><td><strong>保留原值不重新編號</strong>（可能是來源系統的識別碼）</td></tr>
+    <tr><td>人力</td><td><strong>依預定盤點者的人數自動重算</strong>，不會殘留舊值</td></tr>
+    <tr><td>盤點1～8</td><td>依人員對應的工號寫入</td></tr>
+    <tr><td>空白槽位</td><td>門市與人員皆空者<strong>不寫入檔案</strong></td></tr>
+    <tr><td>移走門市但人員仍在</td><td>該列<strong>仍會輸出</strong></td></tr>
+  </table>
+
+  <div class="callout tip">
+    <span class="t">格式還原經過驗證</span>
+    以 397 筆的實際報表測試，匯入後直接匯出並逐格比對，結果與原始檔案<strong>完全一致（0 格差異）</strong>，包含報表標頭、日期格式與午別寫法。
+  </div>
+</section>
+
+<!-- 5 -->
+<section id="c5">
+  <h2 class="chapter">5. 角色與權限</h2>
+  <div class="callout info">
+    <span class="t">本系統目前不含角色與權限機制</span>
+    這是一套單機工具，沒有登入功能，取得檔案的人皆可使用全部功能。權限控管實務上由「誰拿到檔案」與「誰拿到班表資料」決定。
+  </div>
+
+  <h3>5.1 實際使用者</h3>
+  <table>
+    <tr><th style="width:170px">對象</th><th>使用方式</th></tr>
+    <tr><td>排班負責人員</td><td>主要使用者，執行班表調移與匯出</td></tr>
+    <tr><td>課級主管</td><td>可開啟檢視，確認排班狀況與警告提示</td></tr>
+    <tr><td>資訊管理部</td><td>後續 API 串接與系統維護</td></tr>
+  </table>
+
+  <h3>5.2 未來若部署於伺服器</h3>
+  <p>若日後改為部署至公司內網並串接 API，建議由資訊管理部評估加入下列控管：</p>
+  <ul>
+    <li>以公司既有 SSO 或帳號機制驗證身份</li>
+    <li>依課別限制可查詢的人員通訊錄與休假資料範圍</li>
+    <li>存取紀錄留存</li>
+  </ul>
+</section>
+
+<!-- 6 -->
+<section id="c6">
+  <h2 class="chapter">6. 常見問題 FAQ</h2>
+
+  <h3>Q1. 點兩下 HTML 檔案後畫面一片空白？</h3>
+  <p>請確認開啟的是我們提供的<strong>單一 HTML 檔案</strong>（檔案較大，約 780 KB）。若是從程式資料夾中直接開啟 <code>index.html</code>（僅 1 KB），會因為沒有經過編譯而顯示空白。另請改用 Chrome 或 Edge 開啟。</p>
+
+  <h3>Q2. 重新整理後資料都不見了？</h3>
+  <p>這是正常設計。系統不會保存任何資料，重新整理或關閉瀏覽器後即清空，需重新匯入班表。這樣的設計可確保人員個資不會殘留在電腦上。<strong>調整完請記得先匯出 Excel</strong>。</p>
+
+  <h3>Q3. 畫面上方顯示「人員資料 API 尚未連線」？</h3>
+  <p>這是正常的提示，代表後端資料尚未串接。此時班表匯入、拖曳、編輯、匯出等功能<strong>皆可正常使用</strong>，僅人員姓名、休假標示與休假衝突警告需待串接後才會顯示。</p>
+
+  <h3>Q4. 匯入後某一組只有上午，下午是空白的？</h3>
+  <p>這是正常的。報表只列出實際有安排的工作，系統會自動補上空白槽位，讓你可以把其他日期的門市調移進來。這些空白槽位<strong>不會寫入匯出檔案</strong>。</p>
+
+  <h3>Q5. 輸入店號後店名沒有跟著變？</h3>
+  <p>請確認該店號是否存在於目前匯入的班表中。若是新開店、或其他月份的門市因閉轉解臨時排入，系統目前查不到該門市資料，會顯示「查無此門市」，此時需自行填寫欄位。待資訊部串接店鋪檔後即可自動帶入。</p>
+
+  <h3>Q6. 不小心新增太多空白組別，會影響匯出嗎？</h3>
+  <p>不會。空白槽位不會寫入匯出檔案。若想整理畫面，可點擊空白組別標題旁的垃圾桶圖示，或使用「清除空白組別」一次清除。</p>
+
+  <h3>Q7. 為什麼同一間店出現重複盤點的警告？</h3>
+  <p>系統偵測到該門市在同一份班表中被排定兩次以上。這不一定是錯誤——閉店、轉手、解約、續約等異動確實可能需要再盤一次。請確認是否為預期安排即可，系統不會阻擋你的操作。</p>
+
+  <h3>Q8. 拖曳人員後，工號會跟著換嗎？</h3>
+  <p>會。「人力」與「盤點1～8」的工號屬於人員資料，拖曳互換人員時會一併移動。手動修改人員後，系統也會自動重算工號與人力。</p>
+
+  <h3>Q9. 備註為什麼跟著門市走，而不是跟著人？</h3>
+  <p>備註記載的是門市的歸屬與限制（例如「四課勿動」「北二勿動」），屬於門市資料，因此隨門市移動。</p>
+
+  <h3>Q10. 匯出的 Excel 開啟後亂碼？</h3>
+  <p>系統匯出的是標準 .xlsx 格式，正常情況不會亂碼。若發生此狀況，請確認是以 Excel 開啟而非其他文字編輯器，並回報至維護窗口。</p>
+
+  <h3>Q11. 系統可以多人同時使用嗎？</h3>
+  <p>可以，但各自獨立作業。每個人開啟的是自己電腦上的檔案，資料不互通。若需要協作，請以匯出的 Excel 檔案交換。</p>
+
+  <h3>Q12. 舊版的班表匯入檔還能用嗎？</h3>
+  <p>可以。系統會自動辨識格式，舊版「班表匯入_北一08-xxxx.xlsx」（午別 1／2、每日 30 列）仍可正常匯入與匯出。</p>
+</section>
+
+<!-- 7 -->
+<section id="c7">
+  <h2 class="chapter">7. 版本紀錄</h2>
+  <table>
+    <tr><th style="width:80px">版本</th><th style="width:110px">日期</th><th>更新內容</th><th style="width:100px">更新人員</th></tr>
+    <tr>
+      <td>v1.0</td>
+      <td>2026/08/24</td>
+      <td>
+        初版建立。支援盤點行事曆勤務報表格式；門市與人員拖曳調移；雙擊快速修改與店號店名雙向連動；
+        店暫存區與批次移動；組別新增刪除與午別補齊；當日出勤檢視；休假衝突與重複盤點警告；
+        匯出格式完全還原。
+      </td>
+      <td>蔡明達</td>
+    </tr>
+  </table>
+</section>
+
+<!-- 8 -->
+<section id="c8">
+  <h2 class="chapter">8. 資料保護說明</h2>
+
+  <div class="callout info">
+    <span class="t">本系統無資料庫，亦無任何持久化儲存</span>
+    經檢查，程式碼中不存在資料庫定義（無 schema 或 migrations），亦未使用 localStorage、sessionStorage、indexedDB 或 Cookie。所有資料僅存在於瀏覽器記憶體，關閉或重新整理即消失。
+  </div>
+
+  <h3>8.1 系統處理的個人資料</h3>
+  <p>系統本身不儲存個資，但作業過程中會於記憶體中處理下列個人資料：</p>
+  <table>
+    <tr><th style="width:150px">資料項目</th><th style="width:190px">來源</th><th>儲存方式</th></tr>
+    <tr><td>人員代號</td><td>班表「預定盤點者」欄位</td><td>僅存於記憶體，不落地</td></tr>
+    <tr><td>員工工號</td><td>班表「盤點1～8」欄位</td><td>僅存於記憶體，不落地</td></tr>
+    <tr><td>人員姓名</td><td>人員通訊錄 API（待串接）</td><td>僅存於記憶體，不落地</td></tr>
+    <tr><td>職稱</td><td>人員通訊錄 API（待串接）</td><td>僅存於記憶體，不落地</td></tr>
+    <tr><td>休假日期與假別</td><td>人員休假 API（待串接）</td><td>僅存於記憶體，不落地</td></tr>
+  </table>
+
+  <h3>8.2 機敏資料</h3>
+  <p>經檢查，系統不涉及人力釋放人數、薪資、財務效益金額、預算等人資或財會類機敏欄位。</p>
+
+  <h3>8.3 資料保護措施</h3>
+  <table>
+    <tr><th style="width:170px">措施</th><th>說明</th></tr>
+    <tr><td>不落地</td><td>Excel 檔案於瀏覽器記憶體中解析，不上傳至任何伺服器</td></tr>
+    <tr><td>不留存</td><td>未使用任何瀏覽器儲存機制，關閉頁面即清空</td></tr>
+    <tr><td>唯讀介接</td><td>對外僅有三支唯讀查詢 API，系統不回寫任何資料</td></tr>
+    <tr><td>傳輸加密</td><td>API 串接後應以 HTTPS（TLS 1.2+）傳輸，由資訊部規劃</td></tr>
+    <tr><td>原始檔案管理</td><td>班表與人員名單 Excel 含門市與人員資料，請依公司規範妥善保管，勿任意轉發</td></tr>
+    <tr><td>交付物</td><td>程式碼與技術文件不含任何實際班表或人員資料</td></tr>
+  </table>
+
+  <div class="callout warn">
+    <span class="t">使用者責任</span>
+    系統本身不留存資料，但你匯入的 Excel 檔案與匯出的結果仍存放在自己的電腦中，內含門市與人員資料。請依公司個資規範妥善保管，避免存放於共用資料夾或隨意外傳。
+  </div>
+</section>
+
+</main>
+</div>
+
+<footer class="site">
+  <strong>盤點班表調移系統</strong>　|　系統代號 INV-SHIFT　|　版本 v1.0<br>
+  檔名：INV-SHIFT_操作手冊_v1.0_20260824.html<br>
+  本手冊如有疑問或內容需修正，請聯絡維護窗口。<br>
+  日翊文化行銷股份有限公司　©2026
+</footer>
+
+<script>
+  // 捲動時自動 highlight 目前所在章節
+  const links = Array.from(document.querySelectorAll('nav.toc a'));
+  const targets = links
+    .map(a => document.querySelector(a.getAttribute('href')))
+    .filter(Boolean);
+
+  const setActive = () => {
+    const y = window.scrollY + 90;
+    let current = targets[0];
+    for (const t of targets) {
+      if (t.offsetTop <= y) current = t;
+    }
+    links.forEach(a => {
+      a.classList.toggle('active', a.getAttribute('href') === '#' + current.id);
+    });
+  };
+
+  window.addEventListener('scroll', setActive, { passive: true });
+  window.addEventListener('resize', setActive);
+  setActive();
+
+  links.forEach(a => {
+    a.addEventListener('click', (e) => {
+      const el = document.querySelector(a.getAttribute('href'));
+      if (!el) return;
+      e.preventDefault();
+      window.scrollTo({ top: el.offsetTop - 12, behavior: 'smooth' });
+    });
+  });
+</script>
+
+</body>
+</html>

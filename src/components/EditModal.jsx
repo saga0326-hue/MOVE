@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, CornerDownRight } from 'lucide-react';
-import { lookupStore } from '../utils/storeMaster';
+import { lookupStore, buildNameIndex, lookupStoreByName } from '../utils/storeMaster';
 
 export default function EditModal({ row, onClose, onSave, codeMap, storeMaster }) {
   const [form, setForm] = useState({
@@ -14,16 +15,23 @@ export default function EditModal({ row, onClose, onSave, codeMap, storeMaster }
     預定盤點者: row.預定盤點者 ?? '',
     備註: row.備註 ?? '',
   });
-  const [autoFilled, setAutoFilled] = useState(false);
+  const [autoFilled, setAutoFilled] = useState('');
+  const nameIndex = useMemo(() => buildNameIndex(storeMaster), [storeMaster]);
 
   const update = (field) => (e) => {
     const value = e.target.value;
     setForm((prev) => {
       const next = { ...prev, [field]: value };
-      // 輸入店號時，若班表中查得到該店，一併帶入其餘門市欄位
+      // 輸入店號 -> 帶入其餘門市欄位
       if (field === '店號') {
         const found = lookupStore(storeMaster, value);
-        setAutoFilled(!!found);
+        setAutoFilled(found ? '店號' : '');
+        if (found) Object.assign(next, found);
+      }
+      // 輸入店名 -> 反查店號並帶入其餘欄位（記不得店號時使用）
+      if (field === '店名') {
+        const found = lookupStoreByName(nameIndex, value);
+        setAutoFilled(found ? '店名' : '');
         if (found) Object.assign(next, found);
       }
       return next;
@@ -37,10 +45,11 @@ export default function EditModal({ row, onClose, onSave, codeMap, storeMaster }
 
   const shiftText = String(row.午別) === '1' ? '上午' : String(row.午別) === '2' ? '下午' : '';
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+  // 以 portal 掛到 body，避免被側邊面板或固定區塊的 sticky／overflow 裁切
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4">
+      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-white shadow-xl">
+        <div className="sticky top-0 flex items-center justify-between border-b border-gray-200 bg-white px-5 py-4">
           <h3 className="text-base font-semibold text-gray-800">
             編輯　{shiftText}　{row.店名 || '未設定門市'}
           </h3>
@@ -57,7 +66,17 @@ export default function EditModal({ row, onClose, onSave, codeMap, storeMaster }
             <Field label="店號" value={form.店號} onChange={update('店號')} />
             <Field label="型態" value={form.型態} onChange={update('型態')} />
           </div>
-          <Field label="店名" value={form.店名} onChange={update('店名')} />
+          <Field
+            label="店名"
+            value={form.店名}
+            onChange={update('店名')}
+            list="edit-store-name-options"
+          />
+          <datalist id="edit-store-name-options">
+            {[...nameIndex.keys()].map((n) => (
+              <option key={n} value={n} />
+            ))}
+          </datalist>
           <div className="grid grid-cols-2 gap-3">
             <Field label="課別" value={form.課別} onChange={update('課別')} />
             <Field
@@ -105,7 +124,8 @@ export default function EditModal({ row, onClose, onSave, codeMap, storeMaster }
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -115,7 +135,7 @@ export default function EditModal({ row, onClose, onSave, codeMap, storeMaster }
 function StorePreview({ form, storeMaster, autoFilled }) {
   if (!storeMaster || storeMaster.size === 0) return null;
   const known = !!lookupStore(storeMaster, form.店號);
-  if (!form.店號) return null;
+  if (!form.店號 && !form.店名) return null;
 
   return (
     <div className="rounded-lg bg-gray-50 px-3 py-2">
@@ -127,7 +147,7 @@ function StorePreview({ form, storeMaster, autoFilled }) {
       {autoFilled && (
         <p className="mt-1 flex items-center gap-1 text-[11px] text-teal-600">
           <CornerDownRight size={10} />
-          已依店號自動帶入店名、型態、課別與上列欄位
+          已依{autoFilled}自動帶入其餘門市欄位
         </p>
       )}
       {!known && (
@@ -185,7 +205,7 @@ function CodePreview({ value, codeMap }) {
   );
 }
 
-function Field({ label, value, onChange }) {
+function Field({ label, value, onChange, list }) {
   return (
     <div>
       <label className="mb-1 block text-xs font-medium text-gray-500">
@@ -195,6 +215,8 @@ function Field({ label, value, onChange }) {
         type="text"
         value={value}
         onChange={onChange}
+        list={list}
+        autoComplete="off"
         className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-400 focus:outline-none focus:ring-1 focus:ring-purple-400"
       />
     </div>

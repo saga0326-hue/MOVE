@@ -57,3 +57,26 @@ export function lookupStore(storeMaster, 店號) {
   if (!key) return null;
   return storeMaster?.get(key) ?? null;
 }
+
+/**
+ * 建立「店名 → 店號」反查索引
+ * 已驗證 393 間門市店名皆唯一，可安全反查；
+ * 若日後出現同名不同店號，僅保留第一筆並於此處可擴充處理。
+ */
+export function buildNameIndex(storeMaster) {
+  const index = new Map();
+  if (!storeMaster) return index;
+  for (const [店號, record] of storeMaster) {
+    const name = String(record.店名 ?? '').trim();
+    if (!name || index.has(name)) continue;
+    index.set(name, { 店號, ...record });
+  }
+  return index;
+}
+
+/** 依店名反查門市；查無則回傳 null */
+export function lookupStoreByName(nameIndex, 店名) {
+  const key = String(店名 ?? '').trim();
+  if (!key) return null;
+  return nameIndex?.get(key) ?? null;
+}

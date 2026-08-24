@@ -21,7 +21,9 @@ import * as XLSX from 'xlsx';
 const STRUCTURAL_KEYS = ['序', '午別', '日期'];
 
 // 人員欄位：「人力」為人數、「盤點1～8」依序對應預定盤點者各代號的工號，皆隨人員移動
-const STAFF_KEYS = ['預定盤點者', '備註', '人力'];
+// 備註不在此列——其內容（如「四課勿動」「北二勿動」）是註記該門市的歸屬與限制，
+// 屬門市資料，須跟著店號店名一起移動
+const STAFF_KEYS = ['預定盤點者', '人力'];
 const STAFF_KEY_PATTERN = /^盤點\s*\d+$/;
 
 export function isStaffKey(key) {

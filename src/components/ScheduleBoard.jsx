@@ -184,6 +184,9 @@ function SlotCard({ row, checked, onToggle, onEdit }) {
               {row.型態 && `型態 ${row.型態}`}
               {row.營業課別 && `　${row.營業課別}`}
             </div>
+            {row.備註 && (
+              <div className="break-words text-[11px] text-amber-600">{row.備註}</div>
+            )}
           </div>
         </div>
       </DroppableCard>
@@ -200,9 +203,6 @@ function SlotCard({ row, checked, onToggle, onEdit }) {
                 </span>
               )}
             </div>
-            {row.備註 && (
-              <div className="break-words text-[11px] text-amber-600">{row.備註}</div>
-            )}
           </div>
         </div>
       </DroppableCard>

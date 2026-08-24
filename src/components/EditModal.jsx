@@ -66,6 +66,18 @@ export default function EditModal({ row, onClose, onSave, codeMap, storeMaster }
               onChange={update('前次盤點')}
             />
           </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-500">
+              備註（屬門市，隨店號店名移動）
+            </label>
+            <textarea
+              value={form.備註}
+              onChange={update('備註')}
+              rows={2}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-400 focus:outline-none focus:ring-1 focus:ring-purple-400"
+              placeholder="例：四課勿動、北二勿動…"
+            />
+          </div>
           <StorePreview form={form} storeMaster={storeMaster} autoFilled={autoFilled} />
           <hr className="border-gray-100" />
           <div>
@@ -76,19 +88,6 @@ export default function EditModal({ row, onClose, onSave, codeMap, storeMaster }
             />
             <CodePreview value={form.預定盤點者} codeMap={codeMap} />
           </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-500">
-              備註
-            </label>
-            <textarea
-              value={form.備註}
-              onChange={update('備註')}
-              rows={2}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-purple-400 focus:outline-none focus:ring-1 focus:ring-purple-400"
-              placeholder="例：特休、支援其他門市…"
-            />
-          </div>
-
           <div className="flex justify-end gap-2 pt-2">
             <button
               type="button"

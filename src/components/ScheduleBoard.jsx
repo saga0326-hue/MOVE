@@ -4,6 +4,12 @@ import { Store, User, Pencil, GripVertical, PackagePlus, XCircle, Plus, Trash2, 
 import { encodeSlotId, updateRow } from '../utils/dnd';
 import { buildDayGroups, shiftLabel } from '../utils/grouping';
 import { syncStaffDerivedFields } from '../utils/staffUtils';
+import {
+  lookupStore,
+  buildNameIndex,
+  lookupStoreByName,
+  DERIVED_STORE_FIELDS,
+} from '../utils/storeMaster';
 import EditModal from './EditModal';
 
 export default function ScheduleBoard({
@@ -20,8 +26,10 @@ export default function ScheduleBoard({
 }) {
   const [editingRid, setEditingRid] = useState(null);
   const [inlineRid, setInlineRid] = useState(null); // 雙擊直接編輯人員的列
+  const [inlineStoreRid, setInlineStoreRid] = useState(null); // 雙擊直接編輯門市的列
   const [selected, setSelected] = useState(() => new Set());
   const groups = useMemo(() => buildDayGroups(rows), [rows]);
+  const nameIndex = useMemo(() => buildNameIndex(storeMaster), [storeMaster]);
   // 整組都沒有門市也沒有人員者可刪除
   const isEmptyGroup = (g) => g.rows.every((r) => !r.店號 && !r.預定盤點者);
   const emptyCount = groups.filter(isEmptyGroup).length;
@@ -61,6 +69,17 @@ export default function ScheduleBoard({
         ? `已更新，但代號「${unknownCodes.join('、')}」在班表中查無工號，對應的盤點欄位留空。`
         : ''
     );
+  };
+
+  /** 雙擊門市後就地儲存（店號與店名雙向連動，連帶欄位一併寫入） */
+  const saveInlineStore = (rid, patch) => {
+    setInlineStoreRid(null);
+    const target = rows.find((r) => r._rid === rid);
+    if (!target) return;
+    const changed = Object.keys(patch).some((k) => (target[k] ?? '') !== (patch[k] ?? ''));
+    if (!changed) return;
+    onChangeRows(updateRow(rows, rid, patch));
+    onNotify?.('');
   };
 
   const saveEdit = (form) => {
@@ -138,6 +157,12 @@ export default function ScheduleBoard({
                   onStartInline={() => setInlineRid(row._rid)}
                   onSaveInline={(v) => saveInlineStaff(row._rid, v)}
                   onCancelInline={() => setInlineRid(null)}
+                  storeMaster={storeMaster}
+                  nameIndex={nameIndex}
+                  inlineStoreEditing={inlineStoreRid === row._rid}
+                  onStartInlineStore={() => setInlineStoreRid(row._rid)}
+                  onSaveInlineStore={(patch) => saveInlineStore(row._rid, patch)}
+                  onCancelInlineStore={() => setInlineStoreRid(null)}
                 />
               ))}
             </div>
@@ -213,6 +238,12 @@ function SlotCard({
   onStartInline,
   onSaveInline,
   onCancelInline,
+  storeMaster,
+  nameIndex,
+  inlineStoreEditing,
+  onStartInlineStore,
+  onSaveInlineStore,
+  onCancelInlineStore,
 }) {
   const isMorning = String(row.午別) === '1';
   const hasStore = !!row.店號;
@@ -255,21 +286,37 @@ function SlotCard({
       <DroppableCard id={encodeSlotId('store', row._rid)} type="store">
         <div className="flex items-start gap-1.5">
           <Store size={14} className="mt-0.5 shrink-0 text-purple-400" />
-          <div className="min-w-0 text-left">
-            {hasStore ? (
-              <>
-                <div className="break-words text-sm font-medium text-gray-800">{row.店號}</div>
-                <div className="break-words text-sm font-medium text-gray-800">{row.店名}</div>
-              </>
+          <div className="min-w-0 flex-1 text-left">
+            {inlineStoreEditing ? (
+              <InlineStoreInput
+                row={row}
+                storeMaster={storeMaster}
+                nameIndex={nameIndex}
+                onSave={onSaveInlineStore}
+                onCancel={onCancelInlineStore}
+              />
             ) : (
-              <div className="text-sm text-gray-300">未設定門市</div>
-            )}
-            <div className="break-words text-[11px] text-gray-400">
-              {row.型態 && `型態 ${row.型態}`}
-              {row.營業課別 && `　${row.營業課別}`}
-            </div>
-            {row.備註 && (
-              <div className="break-words text-[11px] text-amber-600">{row.備註}</div>
+              <div
+                onDoubleClick={onStartInlineStore}
+                title="雙擊可直接修改門市"
+                className="cursor-text"
+              >
+                {hasStore ? (
+                  <>
+                    <div className="break-words text-sm font-medium text-gray-800">{row.店號}</div>
+                    <div className="break-words text-sm font-medium text-gray-800">{row.店名}</div>
+                  </>
+                ) : (
+                  <div className="text-sm text-gray-300">未設定門市</div>
+                )}
+                <div className="break-words text-[11px] text-gray-400">
+                  {row.型態 && `型態 ${row.型態}`}
+                  {row.營業課別 && `　${row.營業課別}`}
+                </div>
+                {row.備註 && (
+                  <div className="break-words text-[11px] text-amber-600">{row.備註}</div>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -303,6 +350,126 @@ function SlotCard({
           </div>
         </div>
       </DroppableCard>
+    </div>
+  );
+}
+
+/**
+ * 門市的行內編輯：店號與店名雙向連動
+ *
+ * 只要任一欄對得上班表中的門市，另一欄與型態／課別／課別代號／
+ * 營業課別／前次盤點都會一併帶入，避免出現店號與店名兜不起來的資料。
+ * 對不上時明確標紅提示，不會靜默沿用上一家的資料。
+ */
+function InlineStoreInput({ row, storeMaster, nameIndex, onSave, onCancel }) {
+  const [id, setId] = useState(row.店號 ?? '');
+  const [name, setName] = useState(row.店名 ?? '');
+  const [derived, setDerived] = useState(() => {
+    const d = {};
+    for (const k of DERIVED_STORE_FIELDS) d[k] = row[k] ?? '';
+    return d;
+  });
+  const ref = useRef(null);
+
+  useEffect(() => {
+    ref.current?.focus();
+    ref.current?.select();
+  }, []);
+
+  const applyFound = (found) => {
+    const d = {};
+    for (const k of DERIVED_STORE_FIELDS) d[k] = found[k] ?? '';
+    setDerived(d);
+  };
+
+  const onIdChange = (v) => {
+    setId(v);
+    const found = lookupStore(storeMaster, v);
+    if (found) {
+      setName(found.店名 ?? '');
+      applyFound(found);
+    }
+  };
+
+  const onNameChange = (v) => {
+    setName(v);
+    const found = lookupStoreByName(nameIndex, v);
+    if (found) {
+      setId(found.店號 ?? '');
+      applyFound(found);
+    }
+  };
+
+  const isBlank = !id.trim() && !name.trim();
+  const matched = !!lookupStore(storeMaster, id);
+
+  const commit = () => {
+    // 備註屬門市但由使用者自行維護，沿用原值不被連動覆蓋
+    const patch = { 店號: id.trim(), 店名: name.trim(), ...derived, 備註: row.備註 ?? '' };
+    patch.店名 = name.trim();
+    onSave(patch);
+  };
+
+  const stop = (e) => e.stopPropagation();
+  const onKey = (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    else if (e.key === 'Escape') { e.preventDefault(); onCancel(); }
+  };
+
+  return (
+    <div onMouseDown={stop} onClick={stop} onDoubleClick={stop} className="space-y-1">
+      <input
+        ref={ref}
+        value={id}
+        onChange={(e) => onIdChange(e.target.value)}
+        onKeyDown={onKey}
+        list="inline-store-id-options"
+        autoComplete="off"
+        placeholder="店號"
+        className="w-full rounded border border-purple-400 px-1.5 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-purple-400"
+      />
+      <input
+        value={name}
+        onChange={(e) => onNameChange(e.target.value)}
+        onKeyDown={onKey}
+        list="inline-store-name-options"
+        autoComplete="off"
+        placeholder="店名"
+        className="w-full rounded border border-purple-400 px-1.5 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-purple-400"
+      />
+      <datalist id="inline-store-id-options">
+        {storeMaster && [...storeMaster.keys()].map((k) => <option key={k} value={k} />)}
+      </datalist>
+      <datalist id="inline-store-name-options">
+        {nameIndex && [...nameIndex.keys()].map((k) => <option key={k} value={k} />)}
+      </datalist>
+
+      {isBlank ? (
+        <p className="text-[10px] text-gray-400">留空即清除此槽位的門市</p>
+      ) : matched ? (
+        <div className="flex flex-wrap items-center gap-1 text-[10px]">
+          <span className="rounded bg-purple-50 px-1 py-0.5 font-medium text-purple-700">
+            {derived.型態 || '—'}
+          </span>
+          <span className="rounded bg-purple-50 px-1 py-0.5 font-medium text-purple-700">
+            {derived.營業課別 || '—'}
+          </span>
+          <span className="text-teal-600">已連動帶入</span>
+        </div>
+      ) : (
+        <p className="text-[10px] text-red-500">查無此門市，連動欄位不會更新</p>
+      )}
+
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={commit}
+          className="rounded bg-purple-600 px-2 py-0.5 text-[11px] font-medium text-white hover:bg-purple-700"
+        >
+          儲存
+        </button>
+        <span className="text-[10px] text-gray-400">Enter 儲存・Esc 取消</span>
+      </div>
     </div>
   );
 }

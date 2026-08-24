@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DragDropContext } from '@hello-pangea/dnd';
 import { Upload, Download, CalendarDays } from 'lucide-react';
 import {
@@ -41,6 +41,17 @@ function App() {
   const [error, setError] = useState('');
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const fileInputRef = useRef(null);
+
+  // 上方固定區塊的實際高度：警告橫幅可收合，高度會變動，
+  // 量測後供店暫存區決定固定位置，避免被蓋住
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const headerRef = useCallback((node) => {
+    if (!node) return;
+    const update = () => setHeaderHeight(node.getBoundingClientRect().height);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(node);
+  }, []);
 
   const handleImportClick = () => fileInputRef.current?.click();
 
@@ -322,7 +333,10 @@ function App() {
           <DragDropContext onDragEnd={handleDragEnd}>
             {/* 日期、警告與出勤列固定於畫面上方，捲動班表時仍可對照；
                 內容過長時此區自行捲動，避免佔滿整個畫面 */}
-            <div className="sticky top-0 z-30 -mx-4 mb-4 max-h-[45vh] overflow-y-auto bg-gray-100 px-4 pt-1 pb-2 shadow-[0_6px_10px_-8px_rgba(0,0,0,0.35)]">
+            <div
+              ref={headerRef}
+              className="sticky top-0 z-30 -mx-4 mb-4 max-h-[45vh] overflow-y-auto bg-gray-100 px-4 pt-1 pb-2 shadow-[0_6px_10px_-8px_rgba(0,0,0,0.35)]"
+            >
               <div className="mb-3">
                 <DateSwitcher
                   dates={scheduleData.dates}
@@ -368,6 +382,7 @@ function App() {
                 selectedDate={selectedDate}
                 occurrenceIndex={occurrenceIndex}
                 storeMaster={storeMaster}
+                topOffset={headerHeight}
               />
             </div>
           </DragDropContext>

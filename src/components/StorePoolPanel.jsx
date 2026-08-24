@@ -26,6 +26,7 @@ export default function StorePoolPanel({
   selectedDate = '',
   occurrenceIndex,
   storeMaster,
+  topOffset = 0,
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
@@ -50,7 +51,10 @@ export default function StorePoolPanel({
 
   if (collapsed) {
     return (
-      <div className="sticky top-4 shrink-0 self-start">
+      <div
+        className="sticky shrink-0 self-start"
+        style={{ top: topOffset + 16 }}
+      >
         <button
           onClick={() => setCollapsed(false)}
           className="flex min-h-[200px] w-10 flex-col items-center gap-2 rounded-xl border border-gray-200 bg-white py-3 text-gray-400 hover:bg-gray-50"
@@ -69,8 +73,12 @@ export default function StorePoolPanel({
   }
 
   return (
-    // sticky 讓面板隨捲軸固定，避免拖曳到下方組別時暫存區跑出畫面外
-    <div className="sticky top-4 flex max-h-[calc(100vh-2rem)] w-72 shrink-0 flex-col self-start">
+    // sticky 讓面板隨捲軸固定，避免拖曳到下方組別時暫存區跑出畫面外。
+    // 固定位置與可用高度都扣掉上方固定區塊，否則會被蓋住。
+    <div
+      className="sticky flex w-72 shrink-0 flex-col self-start"
+      style={{ top: topOffset + 16, maxHeight: `calc(100vh - ${topOffset + 32}px)` }}
+    >
       <div className="flex min-h-0 flex-col rounded-xl border border-gray-200 bg-white p-3">
         <div className="mb-2 flex items-center justify-between">
           <h2 className="flex items-center gap-1.5 text-sm font-semibold text-gray-700">

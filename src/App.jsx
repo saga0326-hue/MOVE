@@ -16,9 +16,10 @@ import {
   getInspectionKeys,
 } from './utils/staffUtils';
 import { fetchRoster, fetchLeave } from './services/staffApi';
+import { fetchStoreMaster } from './services/storeApi';
 import { formatDateLabel } from './utils/date';
 import { indexStoreOccurrences } from './utils/duplicates';
-import { buildStoreMaster } from './utils/storeMaster';
+import { buildStoreMaster, DERIVED_STORE_FIELDS } from './utils/storeMaster';
 import DuplicateStoreBanner from './components/DuplicateStoreBanner';
 import {
   decodeDroppableId,
@@ -36,6 +37,14 @@ function App() {
   const [scheduleData, setScheduleData] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [storePool, setStorePool] = useState([]);
+  // 對照表於匯入時建立一次即固定。若隨 scheduleData 重算，
+  // 門市被移到暫存區後其列的店號會被清空，該店就從主檔中消失，
+  // 導致重新輸入店號時查不到、店名帶不出來。
+  const [baseStoreMaster, setBaseStoreMaster] = useState(() => new Map());
+  // 店鋪檔 API 補齊的門市（新開店、他月閉轉解等不在班表內者）
+  const [apiStores, setApiStores] = useState(() => new Map());
+  const [codeMap, setCodeMap] = useState(() => new Map());
+  const [inspectionKeys, setInspectionKeys] = useState([]);
   const [roster, setRoster] = useState([]);
   const [leaveRecords, setLeaveRecords] = useState([]);
   const [staffApiError, setStaffApiError] = useState('');
@@ -66,6 +75,9 @@ function App() {
       }
       setScheduleData(data);
       setSelectedDate(data.dates[0]);
+      setBaseStoreMaster(buildStoreMaster(data));
+      setCodeMap(buildCodeToIdMap(data));
+      setInspectionKeys(getInspectionKeys(data));
     } catch (err) {
       console.error(err);
       setError(
@@ -263,10 +275,22 @@ function App() {
   // 店號 -> 已排定位置，供暫存區卡片與重複提醒使用
   const occurrenceIndex = useMemo(() => indexStoreOccurrences(scheduleData), [scheduleData]);
   // 代號 -> 工號，直接從班表的「預定盤點者 ↔ 盤點1~8」對應關係還原
-  const codeMap = useMemo(() => buildCodeToIdMap(scheduleData), [scheduleData]);
-  const inspectionKeys = useMemo(() => getInspectionKeys(scheduleData), [scheduleData]);
+
   // 店號 -> 門市屬性（店名／型態／課別／課別代號／營業課別／前次盤點），同樣由班表推導
-  const storeMaster = useMemo(() => buildStoreMaster(scheduleData), [scheduleData]);
+  // 主檔＝匯入時的班表門市 ＋ 店鋪檔 API ＋ 目前暫存區中的門市（含手動新增者）
+  const storeMaster = useMemo(() => {
+    const merged = new Map(baseStoreMaster);
+    for (const [id, record] of apiStores) {
+      if (!merged.has(id)) merged.set(id, record);
+    }
+    for (const store of storePool) {
+      if (!store.店號 || merged.has(store.店號)) continue;
+      const record = {};
+      for (const k of DERIVED_STORE_FIELDS) record[k] = store[k] ?? '';
+      merged.set(store.店號, record);
+    }
+    return merged;
+  }, [baseStoreMaster, apiStores, storePool]);
 
   // 班表匯入後，依其課別與年月向後端取得人員通訊錄與休假資料
   // API 尚未就緒時僅顯示提示，班表功能仍可正常操作（出勤列會退回只統計班表內出現的代號）
@@ -298,6 +322,32 @@ function App() {
       cancelled = true;
     };
   }, [departments, yearMonths]);
+
+  // 店鋪檔：補齊新開店、他月閉轉解等不在班表內的門市。
+  // 未串接時不影響操作，僅這類門市需自行填寫欄位。
+  useEffect(() => {
+    if (departments.size === 0) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await fetchStoreMaster({ departments: [...departments] });
+        if (cancelled) return;
+        const map = new Map();
+        for (const s of list) {
+          if (!s?.店號) continue;
+          const record = {};
+          for (const k of DERIVED_STORE_FIELDS) record[k] = s[k] ?? '';
+          map.set(String(s.店號).trim(), record);
+        }
+        setApiStores(map);
+      } catch {
+        if (!cancelled) setApiStores(new Map());
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [departments]);
 
   return (
     <div className="min-h-screen bg-gray-100">

@@ -21,8 +21,8 @@ import DuplicateStoreBanner from './components/DuplicateStoreBanner';
 import {
   decodeDroppableId,
   swapFields,
-  getSlotStoreFields,
-  setSlotStoreFields,
+  getRowStoreFields,
+  setRowStoreFields,
 } from './utils/dnd';
 import ScheduleBoard from './components/ScheduleBoard';
 import DateSwitcher from './components/DateSwitcher';
@@ -83,11 +83,28 @@ function App() {
     exportScheduleFile(scheduleData);
   };
 
-  const handleChangeGroups = (nextGroups) => {
+  const handleChangeRows = (nextRows) => {
     setScheduleData((prev) => ({
       ...prev,
-      byDate: { ...prev.byDate, [selectedDate]: nextGroups },
+      byDate: { ...prev.byDate, [selectedDate]: nextRows },
     }));
+  };
+
+  /** 批次把勾選的門市移到暫存區，並清空原槽位 */
+  const handleMoveToPool = (rids) => {
+    const rows = scheduleData.byDate[selectedDate] ?? [];
+    const moved = [];
+    let nextRows = rows;
+    for (const rid of rids) {
+      const storeData = getRowStoreFields(nextRows, rid, scheduleData.storeKeys);
+      if (!storeData['店號']) continue;
+      moved.push({ _id: crypto.randomUUID(), ...storeData, _date: selectedDate });
+      nextRows = setRowStoreFields(nextRows, rid, {}, scheduleData.storeKeys);
+    }
+    if (moved.length === 0) return;
+    handleChangeRows(nextRows);
+    setStorePool((prev) => [...prev, ...moved]);
+    setError(`已將 ${moved.length} 間門市移到暫存區（指定日期為 ${formatDateLabel(selectedDate)}）。`);
   };
 
   const handleAddStore = (form) => {
@@ -108,7 +125,7 @@ function App() {
     if (!result.destination || !scheduleData) return;
     const src = decodeDroppableId(result.source.droppableId);
     const dst = decodeDroppableId(result.destination.droppableId);
-    const groups = scheduleData.byDate[selectedDate];
+    const rows = scheduleData.byDate[selectedDate] ?? [];
 
     // 暫存區內重新排序
     if (src.kind === 'pool' && dst.kind === 'pool') {
@@ -136,30 +153,18 @@ function App() {
       }
       // 一間店一個月只應盤點一次：若已排在別處先提醒（仍允許放置，方便調整過程）
       const already = (occurrenceIndex.get(store.店號) ?? []).filter(
-        (o) => !(o.date === selectedDate && o.groupIndex === dst.groupIndex && o.shift === dst.shift)
+        (o) => !(o.date === selectedDate && o.rid === dst.rid)
       );
       if (already.length > 0) {
         const where = already
-          .map((o) => `${formatDateLabel(o.date)} 第${o.groupIndex}組${o.shift === 1 ? '上午' : '下午'}`)
+          .map((o) => `${formatDateLabel(o.date)} ${String(o.shift) === '1' ? '上午' : '下午'} ${o.店名 || ''}`.trim())
           .join('、');
         setError(`⚠ 門市重複：「${store.店號} ${store.店名}」已排定於 ${where}。`);
       } else {
         setError('');
       }
-      const displaced = getSlotStoreFields(
-        groups,
-        dst.groupIndex,
-        dst.shift,
-        scheduleData.storeKeys
-      );
-      const nextGroups = setSlotStoreFields(
-        groups,
-        dst.groupIndex,
-        dst.shift,
-        store,
-        scheduleData.storeKeys
-      );
-      handleChangeGroups(nextGroups);
+      const displaced = getRowStoreFields(rows, dst.rid, scheduleData.storeKeys);
+      handleChangeRows(setRowStoreFields(rows, dst.rid, store, scheduleData.storeKeys));
       setStorePool((prev) => {
         const next = prev.filter((_, i) => i !== result.source.index);
         // 插回原本拖走的位置，避免整排卡片跳動
@@ -173,11 +178,9 @@ function App() {
 
     // 班表槽位 -> 暫存區：把門市退回暫存區，並清空該槽位
     if (src.kind === 'slot' && src.type === 'store' && dst.kind === 'pool') {
-      const storeData = getSlotStoreFields(groups, src.groupIndex, src.shift, scheduleData.storeKeys);
+      const storeData = getRowStoreFields(rows, src.rid, scheduleData.storeKeys);
       if (!storeData['店號']) return;
-      handleChangeGroups(
-        setSlotStoreFields(groups, src.groupIndex, src.shift, {}, scheduleData.storeKeys)
-      );
+      handleChangeRows(setRowStoreFields(rows, src.rid, {}, scheduleData.storeKeys));
       setStorePool((prev) => [...prev, { _id: crypto.randomUUID(), ...storeData }]);
       return;
     }
@@ -185,13 +188,13 @@ function App() {
     // 班表槽位之間互換（門市 或 人員資訊）
     if (src.kind === 'slot' && dst.kind === 'slot') {
       if (src.type !== dst.type) return;
-      if (src.groupIndex === dst.groupIndex && src.shift === dst.shift) return;
+      if (src.rid === dst.rid) return;
       const fields = src.type === 'store' ? scheduleData.storeKeys : scheduleData.staffKeys;
-      handleChangeGroups(swapFields(groups, fields, src, dst));
+      handleChangeRows(swapFields(rows, fields, src.rid, dst.rid));
     }
   };
 
-  const groups = scheduleData?.byDate[selectedDate];
+  const dayRows = scheduleData?.byDate[selectedDate] ?? [];
   // 課別依整份班表判斷，避免週日等無排班日抓不到而列出全部課別人員
   const departments = useMemo(() => getScheduleDepartments(scheduleData), [scheduleData]);
   const yearMonths = useMemo(() => getScheduleYearMonths(scheduleData), [scheduleData]);
@@ -305,14 +308,14 @@ function App() {
             </div>
             <DuplicateStoreBanner scheduleData={scheduleData} onJump={setSelectedDate} />
             <LeaveConflictBanner
-              groups={groups}
+              rows={dayRows}
               roster={roster}
               leaveRecords={leaveRecords}
               date={selectedDate}
               departments={departments}
             />
             <DailyStaffRow
-              groups={groups}
+              rows={dayRows}
               roster={roster}
               leaveRecords={leaveRecords}
               date={selectedDate}
@@ -321,8 +324,10 @@ function App() {
             <div className="flex items-start gap-4">
               <div className="min-w-0 flex-1">
                 <ScheduleBoard
-                  groups={groups}
-                  onChangeGroups={handleChangeGroups}
+                  rows={dayRows}
+                  format={scheduleData.format}
+                  onChangeRows={handleChangeRows}
+                  onMoveToPool={handleMoveToPool}
                   codeMap={codeMap}
                   inspectionKeys={inspectionKeys}
                   storeMaster={storeMaster}

@@ -21,8 +21,8 @@ export function buildStoreMaster(scheduleData) {
   if (!scheduleData) return new Map();
 
   for (const date of scheduleData.dates) {
-    for (const group of scheduleData.byDate[date]) {
-      for (const row of [group.shift1, group.shift2]) {
+    for (const row of scheduleData.byDate[date] ?? []) {
+      {
         if (!row.店號) continue;
         if (!tally.has(row.店號)) tally.set(row.店號, {});
         const fields = tally.get(row.店號);

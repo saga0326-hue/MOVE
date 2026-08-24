@@ -12,9 +12,9 @@ function colorClasses(count, onLeave) {
   return 'text-gray-400'; // 0 次＝今日未排班，不上色
 }
 
-export default function DailyStaffRow({ groups, roster, leaveRecords, date, departments }) {
+export default function DailyStaffRow({ rows, roster, leaveRecords, date, departments }) {
   const entries = useMemo(() => {
-    const counts = countAssignmentsByCode(groups);
+    const counts = countAssignmentsByCode(rows);
 
     // 沒有通訊錄時，維持原本行為：只列出班表中實際出現過的代號
     if (!roster || roster.length === 0) {
@@ -48,7 +48,7 @@ export default function DailyStaffRow({ groups, roster, leaveRecords, date, depa
       }
     }
     return list;
-  }, [groups, roster, leaveRecords, date, departments]);
+  }, [rows, roster, leaveRecords, date, departments]);
 
   if (entries.length === 0) return null;
 

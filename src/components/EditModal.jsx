@@ -2,17 +2,17 @@ import { useState } from 'react';
 import { X, CornerDownRight } from 'lucide-react';
 import { lookupStore } from '../utils/storeMaster';
 
-export default function EditModal({ slot, onClose, onSave, codeMap, storeMaster }) {
+export default function EditModal({ row, onClose, onSave, codeMap, storeMaster }) {
   const [form, setForm] = useState({
-    店號: slot.row.店號,
-    店名: slot.row.店名,
-    型態: slot.row.型態,
-    課別: slot.row.課別,
-    課別代號: slot.row.課別代號 ?? '',
-    營業課別: slot.row.營業課別 ?? '',
-    前次盤點: slot.row.前次盤點,
-    預定盤點者: slot.row.預定盤點者,
-    備註: slot.row.備註,
+    店號: row.店號 ?? '',
+    店名: row.店名 ?? '',
+    型態: row.型態 ?? '',
+    課別: row.課別 ?? '',
+    課別代號: row.課別代號 ?? '',
+    營業課別: row.營業課別 ?? '',
+    前次盤點: row.前次盤點 ?? '',
+    預定盤點者: row.預定盤點者 ?? '',
+    備註: row.備註 ?? '',
   });
   const [autoFilled, setAutoFilled] = useState(false);
 
@@ -35,14 +35,14 @@ export default function EditModal({ slot, onClose, onSave, codeMap, storeMaster 
     onSave(form);
   };
 
-  const shiftLabel = slot.shift === 1 ? '午別 1（上午）' : '午別 2（下午）';
+  const shiftText = String(row.午別) === '1' ? '上午' : String(row.午別) === '2' ? '下午' : '';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
           <h3 className="text-base font-semibold text-gray-800">
-            編輯槽位　第 {slot.groupIndex} 組・{shiftLabel}
+            編輯　{shiftText}　{row.店名 || '未設定門市'}
           </h3>
           <button
             onClick={onClose}

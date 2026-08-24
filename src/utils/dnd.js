@@ -1,44 +1,58 @@
 export const POOL_ID = 'pool';
 
-export const encodeSlotId = (type, groupIndex, shift) => `${type}|${groupIndex}|${shift}`;
+/**
+ * 拖曳識別碼
+ * 槽位以「列的穩定 id（_rid）」定位，不再依賴組別與午別的座標，
+ * 因此可支援每日筆數不固定、每組列數不固定的報表格式。
+ */
+export const encodeSlotId = (type, rid) => `${type}|${rid}`;
 
 export function decodeDroppableId(id) {
   if (id === POOL_ID) return { kind: 'pool' };
-  const [type, groupIndex, shift] = id.split('|');
-  return { kind: 'slot', type, groupIndex: Number(groupIndex), shift: Number(shift) };
+  const sep = id.indexOf('|');
+  return { kind: 'slot', type: id.slice(0, sep), rid: id.slice(sep + 1) };
 }
 
-function cloneGroups(groups) {
-  return groups.map((g) => ({ ...g, shift1: { ...g.shift1 }, shift2: { ...g.shift2 } }));
-}
+const cloneRows = (rows) => rows.map((r) => ({ ...r }));
+const indexOfRid = (rows, rid) => rows.findIndex((r) => r._rid === rid);
 
-// 互換兩個槽位之間指定欄位（門市資訊 或 人員資訊）的內容
-export function swapFields(groups, fields, a, b) {
-  const next = cloneGroups(groups);
-  const rowA = next[a.groupIndex - 1][a.shift === 1 ? 'shift1' : 'shift2'];
-  const rowB = next[b.groupIndex - 1][b.shift === 1 ? 'shift1' : 'shift2'];
+/** 互換兩列指定欄位的內容（門市欄位 或 人員欄位） */
+export function swapFields(rows, fields, ridA, ridB) {
+  const next = cloneRows(rows);
+  const a = next[indexOfRid(next, ridA)];
+  const b = next[indexOfRid(next, ridB)];
+  if (!a || !b) return rows;
   for (const f of fields) {
-    const tmp = rowA[f];
-    rowA[f] = rowB[f];
-    rowB[f] = tmp;
+    const tmp = a[f];
+    a[f] = b[f];
+    b[f] = tmp;
   }
   return next;
 }
 
-// 取出某槽位目前的門市資訊欄位（用來退回暫存區）
-export function getSlotStoreFields(groups, groupIndex, shift, storeKeys) {
-  const row = groups[groupIndex - 1][shift === 1 ? 'shift1' : 'shift2'];
+/** 取出某列的門市欄位（供退回暫存區） */
+export function getRowStoreFields(rows, rid, storeKeys) {
+  const row = rows.find((r) => r._rid === rid);
   const result = {};
+  if (!row) return result;
   for (const k of storeKeys) result[k] = row[k] ?? '';
   return result;
 }
 
-// 將門市資訊寫入某槽位（未提供的欄位一律清空，代表這是全新指派的店）
-export function setSlotStoreFields(groups, groupIndex, shift, storeFields, storeKeys) {
-  const next = cloneGroups(groups);
-  const row = next[groupIndex - 1][shift === 1 ? 'shift1' : 'shift2'];
-  for (const k of storeKeys) {
-    row[k] = storeFields[k] ?? '';
-  }
+/** 寫入門市欄位；未提供的欄位一律清空 */
+export function setRowStoreFields(rows, rid, storeFields, storeKeys) {
+  const next = cloneRows(rows);
+  const row = next[indexOfRid(next, rid)];
+  if (!row) return rows;
+  for (const k of storeKeys) row[k] = storeFields[k] ?? '';
+  return next;
+}
+
+/** 以整列為單位更新內容 */
+export function updateRow(rows, rid, patch) {
+  const next = cloneRows(rows);
+  const i = indexOfRid(next, rid);
+  if (i === -1) return rows;
+  next[i] = { ...next[i], ...patch };
   return next;
 }

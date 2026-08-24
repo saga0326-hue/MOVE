@@ -7,7 +7,7 @@ import { countAssignmentsByCode, getLeaveOnDate } from '../utils/staffUtils';
  * 需要同時匯入通訊錄（姓名↔代號對照）與休假表才會啟用
  */
 export default function LeaveConflictBanner({
-  groups,
+  rows,
   roster,
   leaveRecords,
   date,
@@ -22,7 +22,7 @@ export default function LeaveConflictBanner({
     const scoped = departments?.size
       ? roster.filter((p) => departments.has(p.課別))
       : roster;
-    const counts = countAssignmentsByCode(groups);
+    const counts = countAssignmentsByCode(rows);
     const result = [];
 
     for (const person of scoped) {
@@ -39,7 +39,7 @@ export default function LeaveConflictBanner({
       });
     }
     return result;
-  }, [groups, roster, leaveRecords, date, departments]);
+  }, [rows, roster, leaveRecords, date, departments]);
 
   if (conflicts.length === 0) return null;
 
@@ -61,7 +61,7 @@ export default function LeaveConflictBanner({
             <span className="text-amber-700">
               被排入
               {c.slots
-                .map((s) => `第 ${s.groupIndex} 組・${s.shift === 1 ? '上午' : '下午'}`)
+                .map((s) => `${String(s.shift) === '1' ? '上午' : '下午'} ${s.店名 || '未設定門市'}`)
                 .join('、')}
             </span>
           </li>

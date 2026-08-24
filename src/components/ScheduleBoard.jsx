@@ -1,86 +1,128 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
-import { Store, User, Pencil, GripVertical } from 'lucide-react';
-import { encodeSlotId } from '../utils/dnd';
+import { Store, User, Pencil, GripVertical, PackagePlus, XCircle } from 'lucide-react';
+import { encodeSlotId, updateRow } from '../utils/dnd';
+import { buildDayGroups, shiftLabel, shiftShort } from '../utils/grouping';
 import { syncStaffDerivedFields } from '../utils/staffUtils';
 import EditModal from './EditModal';
 
 export default function ScheduleBoard({
-  groups,
-  onChangeGroups,
+  rows,
+  format,
+  onChangeRows,
+  onMoveToPool,
   codeMap,
   inspectionKeys = [],
   storeMaster,
   onNotify,
 }) {
-  const [editingSlot, setEditingSlot] = useState(null);
+  const [editingRid, setEditingRid] = useState(null);
+  const [selected, setSelected] = useState(() => new Set());
+  const groups = useMemo(() => buildDayGroups(rows, format), [rows, format]);
 
-  const openEdit = (groupIndex, shift) => {
-    const group = groups[groupIndex - 1];
-    const row = shift === 1 ? group.shift1 : group.shift2;
-    setEditingSlot({ groupIndex, shift, row });
+  const editingRow = rows.find((r) => r._rid === editingRid) ?? null;
+
+  const toggleSelect = (rid) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(rid) ? next.delete(rid) : next.add(rid);
+      return next;
+    });
+
+  const clearSelection = () => setSelected(new Set());
+
+  const moveSelectedToPool = () => {
+    const rids = [...selected].filter((rid) => rows.find((r) => r._rid === rid)?.店號);
+    if (rids.length === 0) return;
+    onMoveToPool?.(rids);
+    clearSelection();
   };
 
   const saveEdit = (form) => {
-    const { groupIndex, shift } = editingSlot;
-    const next = groups.map((g) => ({ ...g, shift1: { ...g.shift1 }, shift2: { ...g.shift2 } }));
-    const key = shift === 1 ? 'shift1' : 'shift2';
-    const merged = { ...next[groupIndex - 1][key], ...form };
-
+    const target = rows.find((r) => r._rid === editingRid);
+    if (!target) return;
     // 人員異動後同步人力與盤點1～8 的工號，避免與實際人員對不上
     const { row, unknownCodes } = syncStaffDerivedFields(
-      merged,
+      { ...target, ...form },
       codeMap ?? new Map(),
       inspectionKeys
     );
-    next[groupIndex - 1][key] = row;
-
-    onChangeGroups(next);
+    onChangeRows(updateRow(rows, editingRid, row));
     onNotify?.(
       unknownCodes.length
         ? `已更新，但代號「${unknownCodes.join('、')}」在班表中查無工號，對應的盤點欄位留空。`
         : ''
     );
-    setEditingSlot(null);
+    setEditingRid(null);
   };
+
+  if (!rows || rows.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-gray-300 bg-white py-16 text-center text-sm text-gray-400">
+        這一天沒有排班資料
+      </div>
+    );
+  }
+
+  const selectedCount = [...selected].filter((rid) =>
+    rows.find((r) => r._rid === rid)?.店號
+  ).length;
 
   return (
     <>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
         {groups.map((group) => (
           <div
-            key={group.groupIndex}
+            key={group.key}
             className="rounded-xl border border-gray-200 bg-gray-50 p-3"
           >
-            <div className="mb-2 text-xs font-semibold text-gray-400">
-              第 {group.groupIndex} 組
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-xs font-semibold text-gray-500">{group.label}</span>
+              <span className="text-[11px] text-gray-400">{group.rows.length} 間</span>
             </div>
             <div className="grid grid-cols-1 gap-2">
-              <SlotColumn
-                label="午別 1（上午）"
-                groupIndex={group.groupIndex}
-                shift={1}
-                row={group.shift1}
-                onEdit={openEdit}
-              />
-              <SlotColumn
-                label="午別 2（下午）"
-                groupIndex={group.groupIndex}
-                shift={2}
-                row={group.shift2}
-                onEdit={openEdit}
-              />
+              {group.rows.map((row) => (
+                <SlotCard
+                  key={row._rid}
+                  row={row}
+                  checked={selected.has(row._rid)}
+                  onToggle={() => toggleSelect(row._rid)}
+                  onEdit={() => setEditingRid(row._rid)}
+                />
+              ))}
             </div>
           </div>
         ))}
       </div>
 
-      {editingSlot && (
+      {selectedCount > 0 && (
+        <div className="sticky bottom-4 z-40 mt-4 flex justify-center">
+          <div className="flex items-center gap-3 rounded-full bg-gray-900 px-4 py-2.5 shadow-lg">
+            <span className="text-sm text-white">已勾選 {selectedCount} 間門市</span>
+            <button
+              onClick={moveSelectedToPool}
+              className="flex items-center gap-1.5 rounded-full bg-purple-500 px-3.5 py-1.5 text-sm font-medium text-white hover:bg-purple-400"
+            >
+              <PackagePlus size={15} />
+              移到暫存區
+            </button>
+            <button
+              onClick={clearSelection}
+              className="flex items-center gap-1 rounded-full px-2 py-1.5 text-sm text-gray-300 hover:text-white"
+            >
+              <XCircle size={15} />
+              取消
+            </button>
+          </div>
+        </div>
+      )}
+
+      {editingRow && (
         <EditModal
-          slot={editingSlot}
+          row={editingRow}
           codeMap={codeMap}
           storeMaster={storeMaster}
-          onClose={() => setEditingSlot(null)}
+          onClose={() => setEditingRid(null)}
           onSave={saveEdit}
         />
       )}
@@ -88,61 +130,77 @@ export default function ScheduleBoard({
   );
 }
 
-function SlotColumn({ label, groupIndex, shift, row, onEdit }) {
+function SlotCard({ row, checked, onToggle, onEdit }) {
+  const isMorning = String(row.午別) === '1';
+  const hasStore = !!row.店號;
+
   return (
-    <div className="rounded-lg bg-white p-2 shadow-sm ring-1 ring-gray-100">
-      <div className="mb-1.5 flex items-center justify-between">
-        <span className="text-[11px] font-medium text-gray-400">{label}</span>
+    <div
+      className={`rounded-lg bg-white p-2 shadow-sm ring-1 transition-colors ${
+        checked ? 'ring-2 ring-purple-400' : 'ring-gray-100'
+      }`}
+    >
+      <div className="mb-1.5 flex items-center justify-between gap-1">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <input
+            type="checkbox"
+            checked={checked}
+            onChange={onToggle}
+            disabled={!hasStore}
+            title={hasStore ? '勾選以批次移到暫存區' : '無門市可勾選'}
+            className="h-3.5 w-3.5 shrink-0 accent-purple-600 disabled:opacity-30"
+          />
+          <span
+            className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium ${
+              isMorning ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700'
+            }`}
+          >
+            {shiftShort(row.午別)}　{shiftLabel(row.午別)}
+          </span>
+        </div>
         <button
-          onClick={() => onEdit(groupIndex, shift)}
-          className="rounded p-0.5 text-gray-300 hover:bg-gray-100 hover:text-purple-500"
+          onClick={onEdit}
+          className="shrink-0 rounded p-0.5 text-gray-300 hover:bg-gray-100 hover:text-purple-500"
           title="編輯"
         >
           <Pencil size={13} />
         </button>
       </div>
 
-      <DroppableCard
-        id={encodeSlotId('store', groupIndex, shift)}
-        type="store"
-      >
+      <DroppableCard id={encodeSlotId('store', row._rid)} type="store">
         <div className="flex items-start gap-1.5">
           <Store size={14} className="mt-0.5 shrink-0 text-purple-400" />
           <div className="min-w-0 text-left">
-            {row.店號 ? (
+            {hasStore ? (
               <>
-                <div className="break-words text-sm font-medium text-gray-800">
-                  {row.店號}
-                </div>
-                <div className="break-words text-sm font-medium text-gray-800">
-                  {row.店名}
-                </div>
+                <div className="break-words text-sm font-medium text-gray-800">{row.店號}</div>
+                <div className="break-words text-sm font-medium text-gray-800">{row.店名}</div>
               </>
             ) : (
               <div className="text-sm text-gray-300">未設定門市</div>
             )}
             <div className="break-words text-[11px] text-gray-400">
               {row.型態 && `型態 ${row.型態}`}
-              {row.課別 && `　課別 ${row.課別}`}
+              {row.營業課別 && `　${row.營業課別}`}
             </div>
           </div>
         </div>
       </DroppableCard>
 
-      <DroppableCard
-        id={encodeSlotId('staff', groupIndex, shift)}
-        type="staff"
-      >
+      <DroppableCard id={encodeSlotId('staff', row._rid)} type="staff">
         <div className="flex items-start gap-1.5">
           <User size={14} className="mt-0.5 shrink-0 text-teal-400" />
           <div className="min-w-0 text-left">
-            <div className="truncate text-sm font-medium text-gray-800">
+            <div className="break-words text-sm font-medium text-gray-800">
               {row.預定盤點者 || <span className="text-gray-300">未指派</span>}
+              {row.人力 && (
+                <span className="ml-1 text-[11px] font-normal text-gray-400">
+                  {row.人力} 人
+                </span>
+              )}
             </div>
             {row.備註 && (
-              <div className="truncate text-[11px] text-gray-400">
-                {row.備註}
-              </div>
+              <div className="break-words text-[11px] text-amber-600">{row.備註}</div>
             )}
           </div>
         </div>

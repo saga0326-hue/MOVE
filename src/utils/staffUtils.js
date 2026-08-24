@@ -27,8 +27,8 @@ export function buildCodeToIdMap(scheduleData) {
   const inspectionKeys = getInspectionKeys(scheduleData);
 
   for (const date of scheduleData.dates) {
-    for (const group of scheduleData.byDate[date]) {
-      for (const row of [group.shift1, group.shift2]) {
+    for (const row of scheduleData.byDate[date] ?? []) {
+      {
         // 只採用店號有填的列，避免備註列的雜訊文字混入
         if (!row.店號 || !row.預定盤點者) continue;
         const codes = Array.from(row.預定盤點者.trim()).filter((c) => c.trim());
@@ -108,22 +108,17 @@ export function getLeaveOnDate(leaveRecords, yyyymmdd) {
  * 統計某日班表中每個人員代號出現的次數與所在組別
  * 只計「店號有填」的槽位，避免特殊業務備註列（如「效期 青+2PT」）的雜訊文字被誤算
  */
-export function countAssignmentsByCode(groups) {
-  const map = new Map(); // code -> { count, slots: [{groupIndex, shift}] }
-  groups.forEach((group) => {
-    [
-      { row: group.shift1, shift: 1 },
-      { row: group.shift2, shift: 2 },
-    ].forEach(({ row, shift }) => {
-      if (!row.店號 || !row.預定盤點者) return;
-      for (const ch of Array.from(row.預定盤點者.trim())) {
-        if (!ch.trim()) continue;
-        const entry = map.get(ch) ?? { count: 0, slots: [] };
-        entry.count += 1;
-        entry.slots.push({ groupIndex: group.groupIndex, shift });
-        map.set(ch, entry);
-      }
-    });
+export function countAssignmentsByCode(rows) {
+  const map = new Map(); // code -> { count, slots: [{rid, shift, 店名}] }
+  (rows ?? []).forEach((row) => {
+    if (!row.店號 || !row.預定盤點者) return;
+    for (const ch of Array.from(row.預定盤點者.trim())) {
+      if (!ch.trim()) continue;
+      const entry = map.get(ch) ?? { count: 0, slots: [] };
+      entry.count += 1;
+      entry.slots.push({ rid: row._rid, shift: row.午別, 店名: row.店名 });
+      map.set(ch, entry);
+    }
   });
   return map;
 }
@@ -135,10 +130,8 @@ export function getScheduleDepartments(scheduleData) {
   const depts = new Set();
   if (!scheduleData) return depts;
   for (const date of scheduleData.dates) {
-    for (const group of scheduleData.byDate[date]) {
-      for (const row of [group.shift1, group.shift2]) {
-        if (row.店號 && row.課別) depts.add(row.課別);
-      }
+    for (const row of scheduleData.byDate[date] ?? []) {
+      if (row.店號 && row.課別) depts.add(row.課別);
     }
   }
   return depts;

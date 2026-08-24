@@ -6,6 +6,7 @@ import {
   exportScheduleFile,
   parseStorePoolFile,
   mergeStorePool,
+  createEmptyRow,
 } from './utils/scheduleParser';
 import {
   getScheduleDepartments,
@@ -88,6 +89,17 @@ function App() {
       ...prev,
       byDate: { ...prev.byDate, [selectedDate]: nextRows },
     }));
+  };
+
+  /** 在當日最後新增一組（含空白的上午與下午槽位） */
+  const handleAddGroup = () => {
+    const rows = scheduleData.byDate[selectedDate] ?? [];
+    const gid = `g-new-${crypto.randomUUID()}`;
+    const added = [1, 2].map((shift) =>
+      createEmptyRow(scheduleData.columns, selectedDate, shift, gid)
+    );
+    handleChangeRows([...rows, ...added]);
+    setError('已新增一組空白槽位，可將門市拖曳進來。未填入內容的槽位不會寫入匯出檔案。');
   };
 
   /** 批次把勾選的門市移到暫存區，並清空原槽位 */
@@ -336,6 +348,7 @@ function App() {
                   rows={dayRows}
                   onChangeRows={handleChangeRows}
                   onMoveToPool={handleMoveToPool}
+                  onAddGroup={handleAddGroup}
                   codeMap={codeMap}
                   inspectionKeys={inspectionKeys}
                   storeMaster={storeMaster}

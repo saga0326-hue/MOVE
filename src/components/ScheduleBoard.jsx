@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
-import { Store, User, Pencil, GripVertical, PackagePlus, XCircle } from 'lucide-react';
+import { Store, User, Pencil, GripVertical, PackagePlus, XCircle, Plus } from 'lucide-react';
 import { encodeSlotId, updateRow } from '../utils/dnd';
-import { buildDayGroups, shiftLabel, shiftShort } from '../utils/grouping';
+import { buildDayGroups, shiftLabel } from '../utils/grouping';
 import { syncStaffDerivedFields } from '../utils/staffUtils';
 import EditModal from './EditModal';
 
@@ -10,6 +10,7 @@ export default function ScheduleBoard({
   rows,
   onChangeRows,
   onMoveToPool,
+  onAddGroup,
   codeMap,
   inspectionKeys = [],
   storeMaster,
@@ -57,8 +58,15 @@ export default function ScheduleBoard({
 
   if (!rows || rows.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-gray-300 bg-white py-16 text-center text-sm text-gray-400">
-        這一天沒有排班資料
+      <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-gray-300 bg-white py-16 text-center">
+        <p className="text-sm text-gray-400">這一天沒有排班資料</p>
+        <button
+          onClick={onAddGroup}
+          className="flex items-center gap-1.5 rounded-lg bg-purple-600 px-3.5 py-2 text-sm font-medium text-white hover:bg-purple-700"
+        >
+          <Plus size={15} />
+          新增組別
+        </button>
       </div>
     );
   }
@@ -77,7 +85,9 @@ export default function ScheduleBoard({
           >
             <div className="mb-2 flex items-center justify-between">
               <span className="text-xs font-semibold text-gray-500">{group.label}</span>
-              <span className="text-[11px] text-gray-400">{group.rows.length} 間</span>
+              <span className="text-[11px] text-gray-400">
+                {group.rows.filter((r) => r.店號).length} 間
+              </span>
             </div>
             <div className="grid grid-cols-1 gap-2">
               {group.rows.map((row) => (
@@ -92,6 +102,17 @@ export default function ScheduleBoard({
             </div>
           </div>
         ))}
+
+        <button
+          onClick={onAddGroup}
+          className="flex min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-gray-300 bg-white text-gray-400 transition-colors hover:border-purple-400 hover:bg-purple-50 hover:text-purple-500"
+        >
+          <Plus size={22} />
+          <span className="text-sm font-medium">新增組別</span>
+          <span className="px-3 text-[11px] leading-snug">
+            會建立空白的上午與下午槽位
+          </span>
+        </button>
       </div>
 
       {selectedCount > 0 && (
@@ -156,7 +177,7 @@ function SlotCard({ row, checked, onToggle, onEdit }) {
               isMorning ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700'
             }`}
           >
-            {shiftShort(row.午別)}　{shiftLabel(row.午別)}
+            {shiftLabel(row.午別)}
           </span>
         </div>
         <button

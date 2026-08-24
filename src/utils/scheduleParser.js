@@ -149,6 +149,48 @@ function assignGroupIds(rows, format) {
   });
 }
 
+/** 建立一列空白槽位（供補齊午別或新增組別使用） */
+export function createEmptyRow(columns, date, shift, gid) {
+  const row = { _rid: `n${crypto.randomUUID()}`, _gid: gid, _added: true };
+  for (const col of columns) row[col.key] = '';
+  row.日期 = date;
+  row.午別 = String(shift);
+  return row;
+}
+
+/** 該列是否有實質內容（無店號也無人員者視為空白，匯出時略過） */
+export const rowHasContent = (row) =>
+  !!String(row?.店號 ?? '').trim() || !!String(row?.預定盤點者 ?? '').trim();
+
+/**
+ * 補齊每組缺少的午別
+ *
+ * 來源報表只列出實際有安排的工作，因此常見某組只有上午或只有下午。
+ * 為了讓使用者能把別天的門市調移進來，補上空白槽位；
+ * 這些列若始終未填入內容，匯出時會被略過，不會污染原檔。
+ */
+function fillMissingShifts(rows, date, columns) {
+  const result = [];
+  let i = 0;
+  while (i < rows.length) {
+    const gid = rows[i]._gid;
+    const group = [];
+    while (i < rows.length && rows[i]._gid === gid) group.push(rows[i++]);
+
+    const shifts = new Set(group.map((r) => String(r.午別)));
+    const filled = [...group];
+    for (const shift of [1, 2]) {
+      if (!shifts.has(String(shift))) {
+        filled.push(createEmptyRow(columns, date, shift, gid));
+      }
+    }
+    // 組內固定上午在前、下午在後
+    filled.sort((a, b) => Number(a.午別) - Number(b.午別));
+    result.push(...filled);
+  }
+  return result;
+}
+
 /**
  * 解析班表檔案
  * @returns {{
@@ -215,6 +257,8 @@ export async function parseScheduleFile(file) {
   // 分組在此固定，之後不再依內容重算（人員調動不應造成卡片重新洗牌）
   for (const date of dates) {
     assignGroupIds(byDate[date], isGrid ? 'grid' : 'report');
+    // 報表格式只列出有安排的工作，補上缺少的午別以便調移
+    if (!isGrid) byDate[date] = fillMissingShifts(byDate[date], date, columns);
   }
 
   const storeKeys = columns
@@ -249,6 +293,9 @@ export function exportScheduleFile(scheduleData, filename = '盤點班表.xlsx')
   const body = [];
   for (const date of scheduleData.dates) {
     for (const row of scheduleData.byDate[date] ?? []) {
+      // 空白槽位（補齊午別或新增組別後未填內容者）不寫入檔案
+      if (!rowHasContent(row)) continue;
+
       // 人力一律依「預定盤點者」的人數重算，避免調整後殘留舊值
       const headcount = Array.from(String(row.預定盤點者 ?? '').trim()).filter((c) =>
         c.trim()

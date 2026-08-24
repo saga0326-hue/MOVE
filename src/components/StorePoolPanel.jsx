@@ -50,10 +50,10 @@ export default function StorePoolPanel({
 
   if (collapsed) {
     return (
-      <div className="shrink-0">
+      <div className="sticky top-4 shrink-0 self-start">
         <button
           onClick={() => setCollapsed(false)}
-          className="flex h-full min-h-[200px] w-10 flex-col items-center gap-2 rounded-xl border border-gray-200 bg-white py-3 text-gray-400 hover:bg-gray-50"
+          className="flex min-h-[200px] w-10 flex-col items-center gap-2 rounded-xl border border-gray-200 bg-white py-3 text-gray-400 hover:bg-gray-50"
           title="展開店暫存區"
         >
           <ChevronLeft size={16} />
@@ -69,8 +69,9 @@ export default function StorePoolPanel({
   }
 
   return (
-    <div className="w-72 shrink-0">
-      <div className="rounded-xl border border-gray-200 bg-white p-3">
+    // sticky 讓面板隨捲軸固定，避免拖曳到下方組別時暫存區跑出畫面外
+    <div className="sticky top-4 flex max-h-[calc(100vh-2rem)] w-72 shrink-0 flex-col self-start">
+      <div className="flex min-h-0 flex-col rounded-xl border border-gray-200 bg-white p-3">
         <div className="mb-2 flex items-center justify-between">
           <h2 className="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
             <Store size={15} className="text-purple-500" />
@@ -117,7 +118,7 @@ export default function StorePoolPanel({
             <div
               ref={dropProvided.innerRef}
               {...dropProvided.droppableProps}
-              className={`min-h-[80px] space-y-1.5 rounded-lg p-1 transition-colors ${
+              className={`min-h-[80px] flex-1 space-y-1.5 overflow-y-auto rounded-lg p-1 transition-colors ${
                 dropSnapshot.isDraggingOver ? 'bg-purple-50' : ''
               }`}
             >

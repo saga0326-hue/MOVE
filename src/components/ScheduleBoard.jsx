@@ -8,7 +8,6 @@ import EditModal from './EditModal';
 
 export default function ScheduleBoard({
   rows,
-  format,
   onChangeRows,
   onMoveToPool,
   codeMap,
@@ -18,7 +17,7 @@ export default function ScheduleBoard({
 }) {
   const [editingRid, setEditingRid] = useState(null);
   const [selected, setSelected] = useState(() => new Set());
-  const groups = useMemo(() => buildDayGroups(rows, format), [rows, format]);
+  const groups = useMemo(() => buildDayGroups(rows), [rows]);
 
   const editingRow = rows.find((r) => r._rid === editingRid) ?? null;
 
@@ -133,6 +132,8 @@ export default function ScheduleBoard({
 function SlotCard({ row, checked, onToggle, onEdit }) {
   const isMorning = String(row.午別) === '1';
   const hasStore = !!row.店號;
+  // 人力即時由預定盤點者推導，與匯出規則一致，避免顯示到殘留的舊值
+  const headcount = Array.from(String(row.預定盤點者 ?? '').trim()).filter((c) => c.trim()).length;
 
   return (
     <div
@@ -193,9 +194,9 @@ function SlotCard({ row, checked, onToggle, onEdit }) {
           <div className="min-w-0 text-left">
             <div className="break-words text-sm font-medium text-gray-800">
               {row.預定盤點者 || <span className="text-gray-300">未指派</span>}
-              {row.人力 && (
+              {headcount > 0 && (
                 <span className="ml-1 text-[11px] font-normal text-gray-400">
-                  {row.人力} 人
+                  {headcount} 人
                 </span>
               )}
             </div>

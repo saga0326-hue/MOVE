@@ -325,7 +325,6 @@ function App() {
               <div className="min-w-0 flex-1">
                 <ScheduleBoard
                   rows={dayRows}
-                  format={scheduleData.format}
                   onChangeRows={handleChangeRows}
                   onMoveToPool={handleMoveToPool}
                   codeMap={codeMap}

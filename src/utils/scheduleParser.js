@@ -114,6 +114,40 @@ function buildColumns(headerRow) {
 }
 
 /**
+ * 於匯入時決定分組並寫入每列的 _gid
+ *
+ * report — 依檔案順序，相鄰且「預定盤點者」首字（帶隊者）相同者為一組。
+ *          以 397 筆實際資料驗證：215 個組在檔案中全部相鄰、
+ *          同日首字不會對應到兩個不同組。
+ * grid   — 舊格式每日固定 30 列、依位置兩兩成對，故每 2 列為一組。
+ *
+ * 分組僅在此處計算一次。之後使用者調動人員時，首字可能改變，
+ * 若即時重算會導致卡片重新洗牌，因此一律沿用匯入當下的分組。
+ */
+function assignGroupIds(rows, format) {
+  if (!rows || rows.length === 0) return;
+
+  if (format === 'grid') {
+    rows.forEach((row, i) => {
+      row._gid = `g${Math.floor(i / 2)}`;
+    });
+    return;
+  }
+
+  let gid = 0;
+  let prevLead = null;
+  rows.forEach((row, i) => {
+    const lead = Array.from(String(row.預定盤點者 ?? '').trim())[0] ?? '';
+    // 首字為空者自成一組，避免多筆未指派被誤併
+    if (i === 0 || lead === '' || prevLead === '' || lead !== prevLead) {
+      if (i > 0) gid += 1;
+    }
+    row._gid = `g${gid}`;
+    prevLead = lead;
+  });
+}
+
+/**
  * 解析班表檔案
  * @returns {{
  *   format:'report'|'grid', dates:string[], byDate:Record<string, object[]>,
@@ -175,6 +209,11 @@ export async function parseScheduleFile(file) {
   // 每日固定 30 列且午別成對者視為舊版格式
   const isGrid =
     dates.length > 0 && dates.every((d) => byDate[d].length === 30) && shiftStyle === 'numeric';
+
+  // 分組在此固定，之後不再依內容重算（人員調動不應造成卡片重新洗牌）
+  for (const date of dates) {
+    assignGroupIds(byDate[date], isGrid ? 'grid' : 'report');
+  }
 
   const storeKeys = columns
     .map((c) => c.key)

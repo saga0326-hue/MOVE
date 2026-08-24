@@ -1,46 +1,32 @@
 /**
  * 畫面分組
  *
- * 一律以「檔案原始順序」為準，只把相鄰的列合併成視覺上的組，
- * 絕不重新排序。「序」欄位在報表格式中是全域流水號，
- * 依它排序會把同組的人完全打散，因此不作為排序依據。
+ * 一律以「檔案原始順序」為準，絕不重新排序。
+ * 「序」欄位在報表格式中是全域流水號，依它排序會把同組的人完全打散，
+ * 因此不作為排序依據。
  *
- * report — 相鄰且「預定盤點者」首字（帶隊者）相同者為一組。
- *          以 397 筆實際資料驗證：215 個組在檔案中全部相鄰、
- *          同日首字不會對應到兩個不同組。
- *
- * grid   — 舊格式每日固定 30 列、依位置兩兩成對，故每 2 列為一組。
+ * 【重要】分組在匯入時就固定（見 scheduleParser 的 assignGroupIds），
+ * 每列帶著 _gid。畫面只依 _gid 聚合，不再即時重算。
+ * 否則使用者一調動人員，首字改變就會導致卡片重新洗牌、位置亂跳。
  */
 
-const leadChar = (row) => Array.from(String(row?.預定盤點者 ?? '').trim())[0] ?? '';
-
-export function buildDayGroups(rows, format) {
+/** 依匯入時決定的 _gid 聚合，順序即為列的順序 */
+export function buildDayGroups(rows) {
   if (!rows || rows.length === 0) return [];
 
-  if (format === 'grid') {
-    const groups = [];
-    for (let i = 0; i < rows.length; i += 2) {
-      groups.push({
-        key: `g${groups.length + 1}`,
-        label: `第 ${groups.length + 1} 組`,
-        rows: rows.slice(i, i + 2),
-      });
+  const groups = [];
+  const index = new Map();
+
+  for (const row of rows) {
+    const gid = row._gid ?? row._rid;
+    if (!index.has(gid)) {
+      index.set(gid, { key: gid, rows: [] });
+      groups.push(index.get(gid));
     }
-    return groups;
+    index.get(gid).rows.push(row);
   }
 
-  // report：相鄰且首字相同者合併
-  const groups = [];
-  for (const row of rows) {
-    const key = leadChar(row);
-    const last = groups[groups.length - 1];
-    if (last && last.key === key && key !== '') {
-      last.rows.push(row);
-    } else {
-      groups.push({ key, label: key || '未指派', rows: [row] });
-    }
-  }
-  return groups.map((g, i) => ({ ...g, key: `${g.key}-${i}`, label: g.label }));
+  return groups.map((g, i) => ({ ...g, label: `第 ${i + 1} 組` }));
 }
 
 /** 午別顯示文字 */

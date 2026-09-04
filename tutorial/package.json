@@ -1,0 +1,16 @@
+{
+  "name": "inv-shift-tutorial-recorder",
+  "private": true,
+  "version": "1.0.0",
+  "description": "用 Playwright 自動操作盤點班表調移系統並錄成教學影片",
+  "type": "commonjs",
+  "scripts": {
+    "data": "node make-demo-data.js",
+    "record": "node record.js",
+    "record:headed": "node record.js --headed",
+    "mp4": "node to-mp4.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.1"
+  }
+}
